@@ -1,0 +1,579 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>PartFinder</title>
+<style>
+:root{--bg:#f5f5f7;--card:#fff;--ink:#1d1d1f;--mute:#6e6e73;--line:#d2d2d7;--blue:#0071e3;--nav:rgba(245,245,247,.8);--seg:#e8e8ed;--hero1:#000;--hero2:#1d1d1f;--ok:#1d8a4a;--warn:#d93025}
+@media(prefers-color-scheme:dark){:root{--bg:#000;--card:#1c1c1e;--ink:#f5f5f7;--mute:#98989d;--line:#38383a;--blue:#2997ff;--nav:rgba(22,22,23,.8);--seg:#2c2c2e;--ok:#32d74b;--warn:#ff6961}}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html{scroll-behavior:smooth}
+body{margin:0;font:17px/1.47 -apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Inter,Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--ink);letter-spacing:-.01em}
+nav.top{position:sticky;top:0;z-index:20;height:48px;background:var(--nav);backdrop-filter:saturate(180%) blur(20px);-webkit-backdrop-filter:saturate(180%) blur(20px);border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:center;gap:clamp(14px,5vw,44px);font-size:13px}
+nav.top button{background:none;border:0;color:var(--mute);font:inherit;cursor:pointer;padding:8px 4px}
+nav.top button.on,nav.top button:hover{color:var(--ink)}
+nav.top .logo{font-weight:700;color:var(--ink);letter-spacing:-.02em}
+.hero{background:radial-gradient(120% 140% at 50% 0%,#2a2a2e 0%,#000 60%);color:#f5f5f7;text-align:center;padding:56px 16px 40px;overflow:hidden}
+.hero h1{font-size:clamp(36px,8vw,72px);line-height:1.05;margin:0 0 10px;font-weight:700;letter-spacing:-.04em}
+.hero h1 span{background:linear-gradient(90deg,#ff9f0a,#ff375f,#bf5af2);-webkit-background-clip:text;background-clip:text;color:transparent}
+.hero p{margin:0 auto 26px;color:#a1a1a6;font-size:clamp(16px,3vw,21px);max-width:560px}
+.searchbox{max-width:640px;margin:0 auto;position:relative}
+.searchbox input{width:100%;font:inherit;font-size:19px;color:#1d1d1f;background:#fff;border:0;border-radius:980px;padding:16px 22px 16px 52px;outline:0;box-shadow:0 0 0 0 rgba(0,113,227,.0);transition:box-shadow .2s}
+.searchbox input:focus{box-shadow:0 0 0 4px rgba(41,151,255,.55)}
+.searchbox svg{position:absolute;left:20px;top:50%;transform:translateY(-50%);width:20px;height:20px;color:#86868b}
+.wrap{max-width:980px;margin:0 auto;padding:0 16px}
+section.tab{display:none;padding-bottom:80px}section.tab.on{display:block}
+.filters{padding:20px 0 6px}
+.seg{display:inline-flex;background:var(--seg);border-radius:10px;padding:2px;gap:2px;max-width:100%;overflow-x:auto}
+.seg button{border:0;background:none;color:var(--ink);font:inherit;font-size:14px;padding:6px 14px;border-radius:8px;cursor:pointer;white-space:nowrap}
+.seg button.on{background:var(--card);box-shadow:0 1px 4px rgba(0,0,0,.18);font-weight:600}
+.chips{display:flex;gap:8px;overflow-x:auto;padding:12px 0;scrollbar-width:none}
+.chips::-webkit-scrollbar{display:none}
+.chip{flex:none;border:1px solid var(--line);background:var(--card);color:var(--ink);padding:6px 14px;border-radius:980px;font-size:14px;cursor:pointer}
+.chip.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+select.sel{font:inherit;font-size:14px;color:var(--ink);background:var(--card);border:1px solid var(--line);border-radius:10px;padding:8px 10px;max-width:100%}
+.count{color:var(--mute);font-size:14px;margin:6px 0 12px}
+.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}
+@media(max-width:700px){.grid{grid-template-columns:1fr}}
+.card{background:var(--card);border-radius:20px;padding:16px;display:flex;gap:14px;cursor:pointer;transition:transform .15s,box-shadow .15s;box-shadow:0 1px 2px rgba(0,0,0,.04)}
+.card:hover{transform:translateY(-2px);box-shadow:0 10px 30px rgba(0,0,0,.12)}
+.thumb{flex:none;width:76px;height:76px;border-radius:14px;background:linear-gradient(145deg,#2a2a2e,#000);color:#f5f5f7;display:grid;place-items:center;overflow:hidden}
+.thumb svg{width:60px;height:60px}.thumb img{width:100%;height:100%;object-fit:cover}
+.meta{flex:1;min-width:0}
+.pn{font:600 12px ui-monospace,SFMono-Regular,Consolas,monospace;color:var(--blue);word-break:break-all}
+.nm{font-weight:600;font-size:17px;line-height:1.25;margin:2px 0 6px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.tags{display:flex;gap:6px;flex-wrap:wrap}
+.tag{font-size:12px;background:var(--seg);border-radius:980px;padding:2px 10px;color:var(--ink)}
+.tag.t{background:var(--ink);color:var(--bg)}
+.row2{display:flex;justify-content:space-between;align-items:center;margin-top:8px;gap:8px}
+.locpill{font-size:13px;font-weight:600;border-radius:980px;padding:3px 12px;background:var(--blue);color:#fff}
+.locpill.none{background:var(--seg);color:var(--mute);font-weight:400}
+.price{color:var(--mute);font-size:14px}
+.empty{text-align:center;color:var(--mute);padding:50px 0}
+/* sheet */
+.sheet{position:fixed;inset:0;z-index:50;background:rgba(0,0,0,.5);backdrop-filter:blur(6px);display:none;align-items:flex-end;justify-content:center}
+.sheet.on{display:flex}
+.panel{background:var(--bg);width:100%;max-width:640px;max-height:94vh;overflow:auto;border-radius:28px 28px 0 0;animation:up .28s ease}
+@keyframes up{from{transform:translateY(60px);opacity:0}to{transform:none;opacity:1}}
+@media(min-width:700px){.sheet{align-items:center}.panel{border-radius:28px}}
+.ph{background:radial-gradient(120% 120% at 50% 0%,#2f2f34,#000 70%);color:#f5f5f7;padding:28px 22px 24px;text-align:center;position:relative}
+.ph .x{position:absolute;right:14px;top:14px;border:0;background:rgba(255,255,255,.16);color:#fff;width:32px;height:32px;border-radius:50%;font-size:18px;cursor:pointer}
+.ph .art{height:130px;display:grid;place-items:center}
+.ph .art svg{height:120px;width:auto;max-width:90%}.ph .art img{max-height:150px;max-width:100%;border-radius:14px}
+.ph .pn{color:#79b8ff;font-size:13px}
+.ph h2{font-size:clamp(24px,6vw,34px);line-height:1.1;margin:6px 0 4px;letter-spacing:-.03em}
+.ph .sub{color:#a1a1a6;font-size:14px}
+.bigloc{margin:18px auto 0;display:inline-block;padding:10px 26px;border-radius:18px;background:linear-gradient(135deg,#ff9f0a,#ff375f);color:#fff}
+.bigloc small{display:block;font-size:11px;letter-spacing:.12em;text-transform:uppercase;opacity:.9}
+.bigloc b{font-size:28px;letter-spacing:-.02em}
+.pb{padding:18px 18px 30px}
+.box{background:var(--card);border-radius:18px;padding:14px 16px;margin-bottom:12px}
+.box h4{margin:0 0 6px;font-size:13px;color:var(--mute);font-weight:600;text-transform:uppercase;letter-spacing:.06em}
+input.in,textarea.in{width:100%;font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:10px 12px}
+.btn{font:inherit;font-size:15px;background:var(--blue);color:#fff;border:0;border-radius:980px;padding:9px 20px;cursor:pointer}
+.btn.sec{background:var(--seg);color:var(--ink)}.btn.del{background:var(--warn)}
+.btns{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+.mute{color:var(--mute);font-size:14px}
+/* learn */
+.big{font-size:clamp(28px,6vw,48px);letter-spacing:-.03em;line-height:1.1;margin:36px 0 6px}
+details.sys{background:var(--card);border-radius:18px;padding:14px 18px;margin:10px 0}
+details.sys summary{font-weight:600;font-size:18px;cursor:pointer}
+details.sys p{color:var(--mute);margin:8px 0 0}
+.term{display:flex;gap:14px;padding:10px 0;border-bottom:1px solid var(--line)}
+.term b{min-width:140px}
+.opt{display:block;width:100%;text-align:left;margin:8px 0;border-radius:14px!important}
+.good{background:var(--ok)!important;color:#fff!important}.bad{background:var(--warn)!important;color:#fff!important}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@media(max-width:560px){.grid2{grid-template-columns:1fr}.term{flex-direction:column;gap:2px}}
+.gal{display:flex;gap:10px;overflow-x:auto;padding:4px 0 8px}
+.gal a{flex:none;width:190px;text-decoration:none;color:var(--mute)}
+.gal img{width:190px;height:135px;object-fit:cover;border-radius:12px;background:var(--seg);display:block}
+.gal small{display:block;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:3px}
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#1d1d1f;color:#fff;padding:10px 18px;border-radius:980px;font-size:14px;z-index:99;display:none}
+</style>
+</head>
+<body>
+<nav class="top">
+  <span class="logo">PartFinder</span>
+  <button data-tab="find" class="on">Find</button>
+  <button data-tab="learn">Learn</button>
+  <button data-tab="quiz">Quiz</button>
+  <button data-tab="stock">Stock</button>
+</nav>
+
+<section id="find" class="tab on">
+  <div class="hero">
+    <h1>Find any part.<br><span>Know where it fits.</span></h1>
+    <p>Search by part number, name, truck or tractor model.</p>
+    <div class="searchbox">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      <input id="q" type="search" placeholder="e.g. hino brake lining" autocomplete="off">
+    </div>
+  </div>
+  <div class="wrap">
+    <div class="filters">
+      <div class="seg" id="types"></div>
+      <div class="chips" id="brands"></div>
+      <select class="sel" id="groups"><option value="">All part groups</option></select>
+    </div>
+    <div class="count" id="count"></div>
+    <div class="grid" id="results"></div>
+    <div class="empty" id="more" style="display:none"></div>
+  </div>
+</section>
+
+<section id="learn" class="tab"><div class="wrap">
+  <h2 class="big">Learn trucks<br>&amp; tractors.</h2>
+  <p class="mute">Tap a system to see how it works and which parts belong to it.</p>
+  <input class="in" id="gq" placeholder="Search terms (PTO, turbo, hydraulic…)" style="margin:12px 0">
+  <div id="systems"></div>
+  <h2 class="big" style="font-size:28px">Glossary</h2>
+  <div class="box" id="glossary"></div>
+</div></section>
+
+<section id="quiz" class="tab"><div class="wrap">
+  <h2 class="big">Quick quiz.</h2>
+  <div class="box" id="quizbox"></div>
+</div></section>
+
+<section id="stock" class="tab"><div class="wrap">
+  <h2 class="big">Stock data.</h2>
+  <div class="box">
+    <h4>Import from SQL Account</h4>
+    <p class="mute">Export Stock Item list to Excel → Save as CSV, then choose the file. Columns like Item Code, Description, Stock Group, Shelf, Balance Qty, Price are recognised. Locations you typed in the app are kept when the CSV has none.</p>
+    <input type="file" id="file" accept=".csv,text/csv">
+    <label class="mute"><input type="checkbox" id="replace"> Replace all existing parts</label>
+    <div class="mute" id="importmsg"></div>
+  </div>
+  <div class="box">
+    <h4>Import many photos at once</h4>
+    <p class="mute">Name each photo file with its part number (e.g. <code>RE504836.jpg</code>; symbols like / - . are ignored when matching). Select all the photos together.</p>
+    <input type="file" id="photos" accept="image/*" multiple>
+    <div class="mute" id="photomsg"></div>
+  </div>
+  <div class="box">
+    <h4>Backup</h4>
+    <p class="mute">Locations and fitment you add are saved on this phone only. Export now and then as a backup.</p>
+    <div class="btns"><button class="btn" id="export">Export CSV</button></div>
+    <div class="mute" id="stockcount" style="margin-top:8px"></div>
+  </div>
+  <div class="box">
+    <h4>Add a new part</h4>
+    <div class="grid2">
+      <input class="in" id="f_partno" placeholder="Part number *">
+      <input class="in" id="f_name" placeholder="Name *">
+      <input class="in" id="f_category" placeholder="Part group">
+      <input class="in" id="f_fits" placeholder="Fits (Hino 500; Ford 6610)">
+      <input class="in" id="f_location" placeholder="Location (A2-S3-B4)">
+      <input class="in" id="f_price" type="number" step="0.01" placeholder="Price">
+    </div>
+    <div class="btns"><button class="btn" id="save">Add part</button></div>
+  </div>
+</div></section>
+
+<div class="sheet" id="sheet"><div class="panel" id="panel"></div></div>
+<div class="toast" id="toast"></div>
+
+<script>
+/* ---------- reference data ---------- */
+const SAMPLE=[
+{partno:"DEMO-1",name:"Demo part (import your CSV on the Stock tab)",brand:"",category:"DEMO",fits:"Hino 500",location:"A1-S1",qty:"",price:10,uom:"PC"}
+];
+const SYSTEMS=[
+["engine","Engine (diesel)","Burns fuel by compressing air until it is hot enough to ignite injected diesel (no spark plugs). Key parts: block, pistons, rings, crankshaft, bearings, cylinder head, valves, injectors, turbocharger. Tractors run low rpm / high torque; trucks add a turbo and intercooler. Wear items: filters, injectors, gaskets, belts."],
+["fuel","Fuel system","Tank → lift pump → fuel/water separator + filter → high-pressure pump → injectors/nozzles. Modern engines use common rail. Dirty fuel or water is the #1 cause of injector failure, so filters are among the most-sold parts."],
+["air","Air intake & turbo","Air filter → turbocharger → intercooler → intake manifold. The turbo uses exhaust gas to spin a compressor and force more air in. A blocked air filter = black smoke and lost power."],
+["cooling","Cooling system","Water pump pushes coolant through the engine and radiator; the thermostat controls flow. Overheating usually means low coolant, bad thermostat, failed water pump or a clogged radiator. Hoses and clamps are common wear items."],
+["lube","Lubrication","Oil pump sends filtered oil to bearings, pistons and the turbo. Match the oil filter and oil grade (e.g. 15W-40) to the machine."],
+["trans","Transmission, clutch & axles","Clutch connects engine to gearbox. Trucks: manual or automated (Eaton Fuller, ZF). Tractors: synchro, powershift or CVT. Then driveshaft → differential → axles. Bearings, oil seals, gears and universal joints live here."],
+["hyd","Hydraulics (tractor & truck tipper)","Pump → control valves → cylinders (lift arms, loader, steering, tipper). Hydraulic oil also lubricates the transmission on many tractors. Parts: pump, filters, hoses, fittings, O-rings and seals. Rated by flow (L/min) and pressure (bar)."],
+["pto","PTO & three-point hitch","PTO (Power Take-Off) is a rear shaft (540 or 1000 rpm) that powers implements like mowers and balers. The three-point hitch (Cat 1/2/3) lifts and holds implements. Always check the PTO guard."],
+["brake","Brakes","Trucks use air brakes: compressor → air tank → brake chambers push S-cam or disc brakes. Tractors mostly use wet-disc or drum brakes. Wear parts: lining, pads, shoes, drums, chambers, slack adjusters."],
+["elec","Electrical","12V (tractors, small trucks) or 24V (heavy trucks). Battery, alternator, starter, fuses, relays, sensors, lamps. Always confirm voltage before selling bulbs or alternators."],
+["steer","Steering & suspension","Tractors: hydrostatic power steering. Trucks: steering box, drag link, tie rods, king pins, leaf springs or air bags, shock absorbers, bushes. Worn tie rods and king pins cause loose steering."],
+["fast","Fasteners, seals & bearings","Bolts, nuts, studs, washers, O-rings, oil seals and bearings are in every system. Always match size and thread (UNC/UNF/metric), and the seal's ID × OD × width, before selling."]
+];
+const GLOSS=[
+["PTO","Power Take-Off – rear shaft (540/1000 rpm) that powers implements."],
+["Three-point hitch","Linkage that lifts and carries implements; sizes Cat 1, 2, 3."],
+["Implement","Any tool pulled/powered by a tractor: plough, mower, baler, sprayer."],
+["Drawbar","Bar at the rear used to tow trailers or heavy implements."],
+["Turbocharger","Exhaust-driven compressor that forces extra air into the engine."],
+["Intercooler","Radiator that cools the turbo's compressed air before it enters the engine."],
+["Common rail","Fuel system with one shared high-pressure line feeding electronic injectors."],
+["ECU / ECM","Engine Control Unit/Module – the computer managing fuel, timing, emissions."],
+["DPF","Diesel Particulate Filter – traps soot in the exhaust."],
+["SCR / AdBlue / DEF","Emissions system that injects urea fluid into the exhaust to cut NOx."],
+["EGR","Exhaust Gas Recirculation – sends some exhaust back to the intake."],
+["Torque","Twisting force of the engine; tractors need lots at low rpm."],
+["Horsepower (hp/kW)","Engine power; 1 hp ≈ 0.746 kW."],
+["GVW / GCW","Gross Vehicle / Combination Weight – max total loaded weight."],
+["Fifth wheel","Coupling plate on a prime mover that holds the trailer's kingpin."],
+["Kingpin","Pin under a semi-trailer that locks into the fifth wheel. (Also the steering pivot on axles.)"],
+["Tandem axle","Two axles close together to carry more weight."],
+["Differential","Gear set letting left and right wheels turn at different speeds in corners."],
+["Air brake","Brake system using compressed air; standard on heavy trucks."],
+["S-cam brake","Air brake where an S-shaped cam pushes the brake shoes outward."],
+["Slack adjuster","Lever that keeps correct clearance between brake shoe and drum."],
+["Brake lining","Friction material riveted or bonded to a brake shoe."],
+["Wet disc brake","Brake discs running in oil – common on tractors, long life."],
+["Hydrostatic","Drive/steering using hydraulic fluid pressure instead of gears."],
+["Powershift","Tractor transmission that changes gears under load, no clutch pedal."],
+["CVT","Continuously Variable Transmission – infinite speeds, no fixed gears."],
+["Synchromesh","Gearbox feature that matches gear speeds for smooth shifting."],
+["Drag link","Rod linking the steering box arm to the steering knuckle."],
+["Tie rod","Rod connecting left and right steering knuckles; sets wheel alignment."],
+["Oil seal","Rubber lip seal that keeps oil in and dirt out around a rotating shaft; sized ID × OD × width."],
+["O-ring","Round rubber seal that sits in a groove; sized by inside diameter × thickness."],
+["UNC / UNF","Imperial bolt threads: Coarse / Fine."],
+["OEM","Original Equipment Manufacturer – genuine brand part."],
+["Aftermarket","Non-OEM part made by another company, usually cheaper."],
+["Cross reference","A list showing which other part numbers are equivalent."],
+["Serial / VIN / chassis no.","Unique ID of the machine – use it to get the exact right part."],
+["Backorder","Item out of stock that is ordered and delivered later."]
+];
+/* which system does a part belong to (for the 'Learn about this' button) */
+const LEARNMAP=[
+[/BRAKE|LINING|DRUM|SHOE|SLACK|CHAMBER/,"brake"],
+[/H\/FILTER|HYD|CYLINDER|CYL\b|COUPLER|PTO/,"hyd"],
+[/F\/FILTER|FUEL|NOZZLE|INJECTOR|PLUNGER/,"fuel"],
+[/A\/FILTER|AIR FILTER|TURBO/,"air"],
+[/WATER PUMP|THERMOSTAT|RADIATOR|FAN BELT|W\/PUMP|COOLANT/,"cooling"],
+[/O\/FILTER|L\/FILTER|OIL FILTER|OIL PUMP/,"lube"],
+[/CLUTCH|GEAR|SYNCHRO|DIFF|YOKE|UNIVERSAL|PROPELLER|HUB/,"trans"],
+[/ALTERNATOR|STARTER|BULB|LAMP|RELAY|SWITCH|FUSE/,"elec"],
+[/TIE ROD|DRAG LINK|KING PIN|KINGPIN|STEER|SPRING|SHOCK|BUSH|BALL JOINT|B\/JOINT/,"steer"],
+[/PISTON|LINER|GASKET|VALVE|CYLINDER HEAD|CRANK|CAMSHAFT/,"engine"],
+[/BOLT|NUT|WASHER|STUD|O-?RING|O\/SEAL|OIL SEAL|SEAL|BRG|BEARING|CIRCLIP/,"fast"]
+];
+/* auto-detect which vehicle a part fits, from shop codes in the part number / description */
+const BR=[
+["Hino","Truck",/\b(HINO|HN|PROFIA|RANGER)\b/],
+["Nissan UD","Truck",/\b(NS|NISSAN|UD|CW\d+|CD\d+|PKD\d+|PKB\d+|CK\d+|CKA\d+)\b/],
+["Isuzu","Truck",/\b(ISUZU|ISU|IS|CXZ|CYZ|EXZ|FVR|NPR|NKR)\b/],
+["Mitsubishi Fuso","Truck",/\b(FUSO|MIT|MITSUBISHI|CANTER)\b/],
+["Mercedes-Benz","Truck",/\b(BENZ|MERCEDES|ACTROS|AXOR)\b/],
+["Volvo","Truck",/\bVOLVO\b/],["Scania","Truck",/\bSCANIA\b/],
+["Foton","Truck",/\bFOTON\b/],["Howo / Sinotruk","Truck",/\b(HOWO|SINOTRUK)\b/],
+["Shacman","Truck",/\bSHACMAN\b/],["Dongfeng","Truck",/\bDONGFENG\b/],["Hyundai","Truck",/\bHYUNDAI\b/],
+["Ford","Tractor",/\b(FD|FORD)\b/],
+["Massey Ferguson","Tractor",/\b(MF|MASSEY)\b/],
+["New Holland","Tractor",/\b(NH|NEW HOLLAND)\b/],
+["Ursus","Tractor",/\b(UR|URSUS)\b/],
+["John Deere","Tractor",/\b(JD|DEERE)\b/],
+["Kubota","Tractor",/\bKUBOTA\b/],["Yanmar","Tractor",/\bYANMAR\b/],
+["Komatsu","Machinery",/\bKOMATSU\b/],["Hitachi","Machinery",/\bHITACHI\b/],["Caterpillar","Machinery",/\bCATERPILLAR\b/],["Hiab","Machinery",/\bHIAB\b/],
+["Perkins","Engine",/\bPERKINS\b/],["Cummins","Engine",/\bCUMMINS\b/]
+];
+const TYPES=["All","Truck","Tractor","Machinery","Engine"];
+const TYPE_LABEL={All:"All",Truck:"Trucks",Tractor:"Tractors",Machinery:"Machinery",Engine:"Engines"};
+
+/* vehicle illustrations (simple line art, uses currentColor) */
+const ART={
+Truck:'<svg viewBox="0 0 200 100" fill="none" stroke="currentColor" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"><path d="M8 66V30h82v36"/><path d="M90 66V40h36l20 16v10"/><path d="M104 44v14h30"/><circle cx="36" cy="72" r="11" fill="#000"/><circle cx="76" cy="72" r="11" fill="#000"/><circle cx="130" cy="72" r="11" fill="#000"/><path d="M8 66h17M47 66h18M87 66h32M141 66h9"/></svg>',
+Tractor:'<svg viewBox="0 0 200 100" fill="none" stroke="currentColor" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"><circle cx="58" cy="64" r="26" fill="#000"/><circle cx="58" cy="64" r="8"/><circle cx="158" cy="76" r="14" fill="#000"/><path d="M84 66h58M142 66V46h-38M104 46V22h-40v24M64 22v-6h46M142 46h28l8 24"/><path d="M104 46H84v20"/></svg>',
+Machinery:'<svg viewBox="0 0 200 100" fill="none" stroke="currentColor" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"><rect x="20" y="70" width="110" height="20" rx="10" fill="#000"/><path d="M34 70V48h60v22M60 48V28h34v20M94 36l50-20 30 32M174 48l8 20h-18z"/></svg>',
+Engine:'<svg viewBox="0 0 200 100" fill="none" stroke="currentColor" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"><rect x="40" y="34" width="110" height="44" rx="6"/><path d="M56 34V20h20v14M92 34V20h20v14M128 34V20h20v14M40 56H22M150 56h22M62 78v10h66v-10"/><circle cx="172" cy="56" r="10"/></svg>',
+Part:'<svg viewBox="0 0 100 100" fill="none" stroke="currentColor" stroke-width="3" stroke-linejoin="round"><circle cx="50" cy="50" r="14"/><path d="M50 14v14M50 72v14M14 50h14M72 50h14M24 24l10 10M66 66l10 10M76 24L66 34M34 66L24 76"/><circle cx="50" cy="50" r="30"/></svg>'
+};
+
+/* ---------- state / storage ---------- */
+const KEY="partfinder.parts.v3";
+let parts=[];
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const norm=s=>String(s??"").toLowerCase().replace(/[^a-z0-9]+/g," ").trim();
+const compact=s=>String(s??"").toLowerCase().replace(/[^a-z0-9]/g,"");
+function toast(m){const t=$("#toast");t.textContent=m;t.style.display="block";clearTimeout(toast.h);toast.h=setTimeout(()=>t.style.display="none",2600)}
+function pack(p){return[p.partno,p.name,p.category,p.uom||"",p.price,p.location||"",p.fits||"",p.qty,p.brand||""]}
+function unpack(r){return{partno:r[0],name:r[1],category:r[2],uom:r[3],price:r[4],location:r[5],fits:r[6],qty:r[7],brand:r[8]}}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(parts.map(pack)))}catch(e){toast("Could not save on this device")}}
+try{const s=localStorage.getItem(KEY);if(s)parts=JSON.parse(s).map(unpack)}catch(e){}
+if(!parts.length){
+  const seed=document.getElementById("seed");
+  parts=seed?JSON.parse(seed.textContent).map(r=>({partno:r[0],name:r[1],brand:"",category:r[2],fits:"",location:"",qty:"",price:r[4]===""?"":Number(r[4]),uom:r[3]})):SAMPLE.map(p=>({...p}));
+}
+
+/* tags computed (not stored) */
+function tagsOf(p){
+  if(p._tg)return p._tg;
+  const text=(p.partno+" "+p.name+" "+(p.fits||"")+" "+(p.brand||"")).toUpperCase().replace(/[^A-Z0-9]+/g," ");
+  const brands=[],types=new Set();
+  for(const [b,t,re] of BR){if(re.test(text)){brands.push(b);types.add(t)}}
+  if(/^AG\//i.test(p.partno)&&!types.size)types.add("Tractor");
+  const v={brands,types:[...types]};
+  Object.defineProperty(p,"_tg",{value:v,enumerable:false,configurable:true});
+  Object.defineProperty(p,"_h",{value:norm([p.partno,p.name,p.category,p.fits,p.location,p.brand,brands.join(" ")].join(" ")),enumerable:false,configurable:true});
+  Object.defineProperty(p,"_c",{value:compact(p.partno),enumerable:false,configurable:true});
+  return v;
+}
+function resetTags(p){delete p._tg}
+function artFor(p){const t=tagsOf(p).types[0];return ART[t]||ART.Part}
+
+/* photos (IndexedDB) */
+let db=null;const photoKeys=new Set();
+function openDB(){return new Promise(res=>{try{const r=indexedDB.open("pf-photos",1);r.onupgradeneeded=()=>r.result.createObjectStore("p");r.onsuccess=()=>{db=r.result;
+  try{const q=db.transaction("p").objectStore("p").getAllKeys();q.onsuccess=()=>{q.result.forEach(k=>photoKeys.add(k));res();renderFind()}}catch(e){res()}};r.onerror=()=>res()}catch(e){res()}})}
+function getPhoto(k){return new Promise(res=>{if(!db||!photoKeys.has(k))return res(null);try{const q=db.transaction("p").objectStore("p").get(k);q.onsuccess=()=>res(q.result||null);q.onerror=()=>res(null)}catch(e){res(null)}})}
+function putPhoto(k,blob){return new Promise(res=>{if(!db)return res(false);try{const t=db.transaction("p","readwrite");t.objectStore("p").put(blob,k);t.oncomplete=()=>{photoKeys.add(k);res(true)};t.onerror=()=>res(false)}catch(e){res(false)}})}
+function resize(file,max=800){return new Promise(res=>{const img=new Image();img.onload=()=>{const s=Math.min(1,max/Math.max(img.width,img.height));const c=document.createElement("canvas");c.width=img.width*s;c.height=img.height*s;c.getContext("2d").drawImage(img,0,0,c.width,c.height);c.toBlob(b=>res(b),"image/jpeg",.8)};img.onerror=()=>res(null);img.src=URL.createObjectURL(file)})}
+
+/* ---------- tabs ---------- */
+function showTab(t){
+  document.querySelectorAll("nav.top button").forEach(x=>x.classList.toggle("on",x.dataset.tab===t));
+  document.querySelectorAll("section.tab").forEach(s=>s.classList.toggle("on",s.id===t));
+  if(t==="stock")$("#stockcount").textContent=parts.length.toLocaleString()+" parts on this device";
+  if(t==="quiz")nextQ();
+  scrollTo(0,0);
+}
+document.querySelectorAll("nav.top button").forEach(b=>b.onclick=()=>showTab(b.dataset.tab));
+
+/* ---------- find ---------- */
+let fType="All",fBrand="",fGroup="";
+function search(q){
+  const tokens=norm(q).split(" ").filter(Boolean),cq=compact(q),nq=norm(q);
+  const out=[];
+  for(const p of parts){
+    const tg=tagsOf(p);
+    if(fType!=="All"&&!tg.types.includes(fType))continue;
+    if(fBrand&&!tg.brands.includes(fBrand))continue;
+    if(fGroup&&p.category!==fGroup)continue;
+    let s=0;
+    if(tokens.length){
+      if(!tokens.every(t=>p._h.includes(t))&&!(cq.length>2&&p._c.includes(cq)))continue;
+      if(p._c===cq)s+=100;else if(p._c.startsWith(cq))s+=50;else if(p._c.includes(cq))s+=30;
+      const nn=norm(p.name);if(nn.includes(nq))s+=20;
+      for(const t of tokens)if(nn.includes(t))s+=5;
+    }
+    out.push({p,s});
+  }
+  return out.sort((a,b)=>b.s-a.s||a.p.name.localeCompare(b.p.name));
+}
+function card(p){
+  const tg=tagsOf(p);
+  const q=(p.qty===""||p.qty==null)?"":Number(p.qty);
+  const tags=(p.fits?p.fits.split(/[;,]/).map(s=>s.trim()).filter(Boolean):tg.brands).slice(0,3).map(b=>`<span class="tag">${esc(b)}</span>`).join("");
+  const typeTag=tg.types[0]?`<span class="tag t">${esc(tg.types[0])}</span>`:"";
+  const th=photoKeys.has(p.partno)?`<div class="thumb" data-ph="${esc(p.partno)}">${artFor(p)}</div>`:`<div class="thumb">${artFor(p)}</div>`;
+  return `<div class="card" data-pn="${esc(p.partno)}">${th}<div class="meta"><div class="pn">${esc(p.partno)}</div><div class="nm">${esc(p.name||p.partno)}</div>
+  <div class="tags">${typeTag}${tags}</div>
+  <div class="row2"><span class="locpill ${p.location?"":"none"}">${p.location?"📍 "+esc(p.location):"No location yet"}</span>
+  <span class="price">${q!==""?(q>0?q+" in stock":"Out of stock"):(p.price!==""&&p.price!=null?"RM "+Number(p.price).toFixed(2):"")}</span></div></div></div>`;
+}
+function renderFind(){
+  const r=search($("#q").value);
+  $("#count").textContent=r.length.toLocaleString()+" part"+(r.length===1?"":"s");
+  $("#results").innerHTML=r.length?r.slice(0,60).map(x=>card(x.p)).join(""):`<div class="empty" style="grid-column:1/-1">Nothing found.<br>Try fewer words, or just the last digits of the part number.</div>`;
+  const m=$("#more");if(r.length>60){m.style.display="block";m.textContent="Showing the top 60. Type more to narrow down."}else m.style.display="none";
+  document.querySelectorAll("[data-ph]").forEach(async el=>{const b=await getPhoto(el.dataset.ph);if(b){const i=new Image();i.src=URL.createObjectURL(b);el.innerHTML="";el.appendChild(i)}});
+}
+function renderFilters(){
+  $("#types").innerHTML=TYPES.map(t=>`<button class="${fType===t?"on":""}" data-t="${t}">${TYPE_LABEL[t]}</button>`).join("");
+  $("#types").querySelectorAll("button").forEach(b=>b.onclick=()=>{fType=b.dataset.t;fBrand="";renderFilters();renderFind()});
+  const n={};parts.forEach(p=>{const tg=tagsOf(p);if(fType!=="All"&&!tg.types.includes(fType))return;tg.brands.forEach(b=>n[b]=(n[b]||0)+1)});
+  const bs=Object.keys(n).sort((a,b)=>n[b]-n[a]);
+  $("#brands").innerHTML=bs.map(b=>`<span class="chip ${fBrand===b?"on":""}" data-b="${esc(b)}">${esc(b)}</span>`).join("");
+  $("#brands").querySelectorAll(".chip").forEach(c=>c.onclick=()=>{fBrand=fBrand===c.dataset.b?"":c.dataset.b;renderFilters();renderFind()});
+  const g={};parts.forEach(p=>{if(p.category)g[p.category]=(g[p.category]||0)+1});
+  $("#groups").innerHTML=`<option value="">All part groups</option>`+Object.keys(g).sort().map(k=>`<option value="${esc(k)}" ${fGroup===k?"selected":""}>${esc(k)} (${g[k]})</option>`).join("");
+}
+$("#groups").onchange=e=>{fGroup=e.target.value;renderFind()};
+let qt;$("#q").oninput=()=>{clearTimeout(qt);qt=setTimeout(renderFind,120)};
+$("#results").onclick=e=>{const c=e.target.closest("[data-pn]");if(c)openSheet(c.dataset.pn)};
+
+/* ---------- detail sheet ---------- */
+/* online reference photos from Wikimedia Commons (free-licence, linked with credit) */
+const WC={};
+async function wiki(q,n=6){
+  if(WC[q])return WC[q];
+  try{
+    const u="https://commons.wikimedia.org/w/api.php?action=query&format=json&origin=*&generator=search&gsrnamespace=6&gsrlimit="+(n*2)+"&gsrsearch="+encodeURIComponent(q)+"&prop=imageinfo&iiprop=url|extmetadata&iiurlwidth=480&iiextmetadatafilter=LicenseShortName";
+    const j=await(await fetch(u)).json();
+    const pg=Object.values((j.query||{}).pages||{}).sort((a,b)=>a.index-b.index);
+    const r=pg.map(p=>{const i=(p.imageinfo||[])[0];return i&&/\.(jpe?g|png|svg|webp)$/i.test(p.title)?{t:i.thumburl||i.url,page:i.descriptionurl,title:p.title.replace(/^File:/,"").replace(/\.\w+$/,""),lic:((i.extmetadata||{}).LicenseShortName||{}).value||""}:null}).filter(Boolean).slice(0,n);
+    WC[q]=r;return r;
+  }catch(e){return null}
+}
+const CAT={"brake lining shoe":"Brake shoes","brake drum":"Drum brakes","brake pad":"Brake pads","oil seal shaft":"Oil seals","o-ring":"O-rings","bearing":"Ball bearings","fuel filter":"Fuel filters","air filter":"Air filters","oil filter":"Oil filters","clutch disc":"Clutches","turbocharger":"Turbochargers","diesel injector":"Diesel fuel injectors","water pump engine":"Water pumps","alternator":"Alternators","starter motor":"Starter motors","tie rod end":"Tie rods","engine piston rings":"Pistons","cylinder liner":"Cylinder liners","cylinder head gasket":"Cylinder head gaskets","hydraulic hose":"Hydraulic hoses","leaf spring truck":"Leaf springs","hex nut":"Nuts (hardware)","universal joint driveshaft":"Universal joints","wheel hub truck":"Wheel hubs","engine thermostat":"Thermostats","truck radiator":"Radiators (engine cooling)","hydraulic pump":"Hydraulic pumps","gear":"Gears","diesel engine cutaway":"Diesel engines","turbocharger cutaway":"Turbochargers","tractor PTO shaft":"Power take-offs","truck drum brake":"Drum brakes","oil seal bearing":"Oil seals"};
+async function wikiBest(q){
+  if(CAT[q]){const r=await wiki('incategory:"'+CAT[q]+'"');if(r&&r.length>=2)return r;if(r===null)return null}
+  return wiki(q+" -journal -book -magazine -catalog -patent");
+}
+async function fillGal(el,q){
+  el.textContent="Loading photos…";
+  const r=await wikiBest(q);
+  if(r===null){el.textContent="Photos need an internet connection.";return}
+  if(!r.length){el.textContent="No free photos found for “"+q+"”.";return}
+  el.innerHTML=r.map(x=>`<a href="${esc(x.page)}" target="_blank" rel="noopener"><img loading="lazy" src="${esc(x.t)}" alt="${esc(x.title)}"><small>${esc(x.title)}${x.lic?" · "+esc(x.lic):""}</small></a>`).join("");
+}
+const SYSQ={engine:"diesel engine cutaway",fuel:"diesel fuel injection pump",air:"turbocharger cutaway",cooling:"engine water pump radiator",lube:"engine oil filter",trans:"truck gearbox transmission",hyd:"tractor hydraulic cylinder",pto:"tractor PTO shaft",brake:"truck drum brake",elec:"truck alternator starter motor",steer:"truck steering tie rod",fast:"oil seal bearing"};
+const PARTTERMS=[[/LINING/,"brake lining shoe"],[/DRUM/,"brake drum"],[/BRAKE PAD|\bPAD\b/,"brake pad"],[/O\/SEAL|OIL SEAL/,"oil seal shaft"],[/O-?RING/,"o-ring"],[/BRG|BEARING/,"bearing"],[/F\/FILTER|FUEL FILTER/,"fuel filter"],[/A\/FILTER|AIR FILTER/,"air filter"],[/H\/FILTER|HYD.*FILTER/,"hydraulic filter"],[/FILTER/,"oil filter"],[/CLUTCH/,"clutch disc"],[/TURBO/,"turbocharger"],[/NOZZLE|INJECTOR/,"diesel injector"],[/WATER PUMP|W\/PUMP/,"water pump engine"],[/ALTERNATOR/,"alternator"],[/STARTER/,"starter motor"],[/TIE ROD/,"tie rod end"],[/DRAG LINK/,"drag link truck"],[/KING ?PIN/,"king pin truck"],[/PISTON/,"engine piston rings"],[/LINER/,"cylinder liner"],[/GASKET/,"cylinder head gasket"],[/HOSE/,"hydraulic hose"],[/SPRING/,"leaf spring truck"],[/BOLT|STUD/,"wheel stud bolt"],[/\bNUT\b/,"hex nut"],[/UNIVERSAL|U\/JOINT|YOKE/,"universal joint driveshaft"],[/\bHUB\b/,"wheel hub truck"],[/THERMOSTAT/,"engine thermostat"],[/RADIATOR/,"truck radiator"],[/BUSH/,"rubber bush suspension"],[/PUMP/,"hydraulic pump"],[/GEAR/,"gear"]];
+function partTerm(p,lid){const t=(p.name+" "+p.partno).toUpperCase();for(const [re,q] of PARTTERMS)if(re.test(t))return q;return lid?SYSQ[lid]:""}
+/* turn shop shorthand into a search phrase that image search understands */
+const ABBR=[[/\bB\/LINING\b/g,"brake lining"],[/\bB\/JOINT\b/g,"ball joint"],[/\bB\/SHOE\b/g,"brake shoe"],[/\bH\/FILTER\b/g,"hydraulic filter"],[/\bF\/FILTER\b/g,"fuel filter"],[/\bA\/FILTER\b/g,"air filter"],[/\bO\/FILTER\b/g,"oil filter"],[/\bL\/FILTER\b/g,"oil filter"],[/\bO\/SEAL\b/g,"oil seal"],[/\bD\/SEAL\b/g,"dust seal"],[/\bU\/SEAL\b/g,"u seal"],[/\bW\/PUMP\b/g,"water pump"],[/\bBRG\b/g,"bearing"],[/\bFRT\b/g,"front"],[/\bRR\b/g,"rear"],[/\bLH\b/g,"left"],[/\bRH\b/g,"right"],[/\bASSY\b/g,"assembly"],[/\bC\/W\b/g,"with"],[/\bW\/WSH\b/g,"with washer"],[/\bCSK\b/g,"countersunk"]];
+const CODE={HN:"Hino",NS:"Nissan UD",ISU:"Isuzu",IS:"Isuzu",MIT:"Mitsubishi",FD:"Ford",MF:"Massey Ferguson",NH:"New Holland",UR:"Ursus",JD:"John Deere"};
+function cleanNo(p){return p.partno.replace(/^[A-Za-z]{1,5}\//,"")}
+function smartQuery(p,tg){
+  let n=(p.name||"").toUpperCase().replace(/\([^)]*\)/g," ").replace(/\bUSE\b.*$/,"");
+  for(const [re,w] of ABBR)n=n.replace(re,w);
+  n=n.replace(/\b(HN|NS|ISU|IS|MIT|FD|MF|NH|UR|JD)\b/g,m=>CODE[m]);
+  n=n.replace(/\bM\/BENZ\b/g,"Mercedes-Benz").replace(/\b(UD|HOLLAND|FERGUSON|DEERE)-/g,"");
+  n=n.replace(/[^A-Za-z0-9. \-]+/g," ").replace(/\s+/g," ").trim().toLowerCase();
+  const brand=(tg&&tg.brands[0])||"";
+  if(brand&&n.includes(brand.split(" ")[0].toLowerCase()))n=n.replace(new RegExp(brand.split(" ")[0].toLowerCase()+"[- ]?","g"),"");
+  const words=n.split(" ").filter(Boolean).slice(0,7).join(" ");
+  return (brand+" "+words+" "+cleanNo(p)).replace(/\s+/g," ").trim();
+}
+function gimg(q){return "https://www.google.com/search?tbm=isch&q="+encodeURIComponent(q.trim())}
+function learnFor(p){const t=(p.name+" "+p.partno).toUpperCase();for(const [re,id] of LEARNMAP)if(re.test(t))return id;return null}
+async function openSheet(pn){
+  const p=parts.find(x=>x.partno===pn);if(!p)return;
+  const tg=tagsOf(p),lid=learnFor(p),sys=SYSTEMS.find(s=>s[0]===lid);
+  const photo=await getPhoto(pn);
+  const art=photo?`<img id="pimg" src="${URL.createObjectURL(photo)}">`:artFor(p);
+  $("#panel").innerHTML=`<div class="ph"><button class="x" id="cx">✕</button><div class="art">${art}</div>
+   <div class="pn">${esc(p.partno)}</div><h2>${esc(p.name||p.partno)}</h2>
+   <div class="sub">${esc([p.category,p.uom].filter(Boolean).join(" · "))}${p.price!==""&&p.price!=null?" · RM "+Number(p.price).toFixed(2):""}</div>
+   <div class="bigloc"><small>Shelf location</small><b>${esc(p.location||"Not set")}</b></div></div>
+  <div class="pb">
+   <div class="box"><h4>Suitable for</h4>
+     <div class="tags" style="margin-bottom:8px">${tg.types.map(t=>`<span class="tag t">${esc(t)}</span>`).join("")}${tg.brands.map(b=>`<span class="tag">${esc(b)}</span>`).join("")||'<span class="mute">Not detected yet</span>'}</div>
+     <div class="mute" style="margin-bottom:6px">${tg.brands.length?"Auto-detected from the shop codes in the description – please confirm. ":""}Type the exact models below to override.</div>
+     <input class="in" id="s_fits" placeholder="e.g. Hino 500 FM; Nissan UD CW54" value="${esc(p.fits||"")}"></div>
+   <div class="box"><h4>Location</h4><input class="in" id="s_loc" placeholder="Aisle-Shelf-Bin, e.g. A2-S3-B4" value="${esc(p.location||"")}"></div>
+   <div class="box"><h4>Photo</h4><div class="mute">Take a photo once so you recognise the part next time.</div>
+     <div class="btns"><label class="btn sec" style="cursor:pointer">📷 ${photo?"Replace":"Add"} photo<input type="file" id="s_photo" accept="image/*" capture="environment" hidden></label>
+     </div>
+     <h4 style="margin-top:14px">Find exact photos</h4>
+     <div class="mute" style="margin-bottom:6px">Search words are cleaned up from your shop codes. Edit them if the results are off. To keep a photo: save it from the search, then tap “Add photo”.</div>
+     <input class="in" id="s_q" value="${esc(smartQuery(p,tg))}">
+     <div class="btns">
+       <button class="btn" id="b_g">Google Images</button>
+       <button class="btn sec" id="b_b">Bing Images</button>
+       <button class="btn sec" id="b_n">Part no. only</button>
+       <button class="btn sec" id="b_w">Wikimedia</button>
+       <button class="btn sec" id="b_y">▶ Videos</button>
+     </div></div>
+   <div class="box"><h4>Reference photos (online)</h4>
+     <div class="mute" id="g1t"></div><div class="gal" id="g1"></div>
+     <div class="mute" id="g2t" style="margin-top:6px"></div><div class="gal" id="g2"></div>
+     <div class="mute" style="font-size:12px">Photos from Wikimedia Commons (free licence); tap one for the source. Generic examples – the exact part may look different.</div></div>
+   ${sys?`<div class="box"><h4>Study</h4><div style="font-weight:600">${esc(sys[1])}</div><div class="mute">${esc(sys[2].slice(0,150))}…</div><div class="btns"><button class="btn" id="s_learn">Learn how this works</button></div></div>`:""}
+  </div>`;
+  $("#sheet").classList.add("on");document.body.style.overflow="hidden";
+  const go=u=>window.open(u,"_blank","noopener");
+  $("#b_g").onclick=()=>go(gimg($("#s_q").value));
+  $("#b_b").onclick=()=>go("https://www.bing.com/images/search?q="+encodeURIComponent($("#s_q").value));
+  $("#b_n").onclick=()=>go(gimg(cleanNo(p)+" "+(tg.brands[0]||"")+" part"));
+  $("#b_w").onclick=()=>{$("#g1t").textContent="Wikimedia: "+$("#s_q").value;fillGal($("#g1"),$("#s_q").value);$("#g1").scrollIntoView({block:"center"})};
+  $("#b_y").onclick=()=>go("https://www.youtube.com/results?search_query="+encodeURIComponent((sys?sys[1]:(p.name||p.partno))+" how it works truck tractor"));
+  const pq=partTerm(p,lid);
+  if(pq){$("#g1t").textContent="What it looks like: "+pq;fillGal($("#g1"),pq)}else $("#g1").parentElement.querySelector("#g1t").textContent="";
+  const vq=tg.brands[0]?tg.brands[0]+" "+(tg.types[0]||"").toLowerCase():"";
+  if(vq){$("#g2t").textContent="Fits: "+vq;fillGal($("#g2"),vq)}
+  $("#cx").onclick=closeSheet;
+  const commit=()=>{p.fits=$("#s_fits").value.trim();p.location=$("#s_loc").value.trim();resetTags(p);save();renderFilters();renderFind();$(".bigloc b").textContent=p.location||"Not set"};
+  $("#s_fits").onchange=()=>{commit();toast("Saved")};$("#s_loc").onchange=()=>{commit();toast("Saved")};
+  $("#s_photo").onchange=async e=>{const f=e.target.files[0];if(!f)return;const b=await resize(f);if(b&&await putPhoto(pn,b)){toast("Photo saved");renderFind();openSheet(pn)}else toast("Could not save photo")};
+  if(sys)$("#s_learn").onclick=()=>{closeSheet();showTab("learn");const d=document.getElementById("sys-"+lid);if(d){d.open=true;d.scrollIntoView({block:"center"})}};
+}
+function closeSheet(){$("#sheet").classList.remove("on");document.body.style.overflow=""}
+$("#sheet").onclick=e=>{if(e.target.id==="sheet")closeSheet()};
+document.addEventListener("keydown",e=>{if(e.key==="Escape")closeSheet()});
+
+/* ---------- learn ---------- */
+function relatedCount(id){return 0}
+function renderLearn(){
+  const q=norm($("#gq").value);
+  $("#systems").innerHTML=SYSTEMS.filter(s=>!q||norm(s[1]+" "+s[2]).includes(q)).map(s=>`<details class="sys" id="sys-${s[0]}"><summary>${esc(s[1])}</summary><p>${esc(s[2])}</p><div class="gal" data-sq="${esc(SYSQ[s[0]]||s[1])}"></div><div class="btns"><a class="btn sec" target="_blank" rel="noopener" href="${gimg(s[1]+" diagram truck tractor parts")}">🖼 Diagrams &amp; photos</a><a class="btn sec" target="_blank" rel="noopener" href="https://www.youtube.com/results?search_query=${encodeURIComponent(s[1]+" how it works truck tractor")}">▶ Videos</a></div></details>`).join("");
+  const g=GLOSS.filter(t=>!q||norm(t[0]+" "+t[1]).includes(q));
+  $("#glossary").innerHTML=g.length?g.map(t=>`<div class="term"><b>${esc(t[0])}</b><span class="mute" style="font-size:16px">${esc(t[1])}</span></div>`).join(""):`<div class="empty">No matching terms.</div>`;
+}
+$("#gq").oninput=renderLearn;
+$("#systems").addEventListener("toggle",e=>{const d=e.target;if(!d.open)return;const g=d.querySelector(".gal");if(g&&!g.dataset.done){g.dataset.done=1;fillGal(g,g.dataset.sq)}},true);
+
+/* ---------- quiz ---------- */
+let score=0,total=0,curQ=null;
+function nextQ(){
+  const i=Math.floor(Math.random()*GLOSS.length);
+  const wrong=[];while(wrong.length<3){const j=Math.floor(Math.random()*GLOSS.length);if(j!==i&&!wrong.includes(j))wrong.push(j)}
+  const opts=[i,...wrong].sort(()=>Math.random()-.5);curQ={i};
+  $("#quizbox").innerHTML=`<div class="mute">Score ${score} / ${total}</div><p style="font-size:22px;font-weight:600;margin:8px 0">What is “${esc(GLOSS[i][0])}”?</p>
+   ${opts.map(o=>`<button class="btn sec opt" data-o="${o}">${esc(GLOSS[o][1])}</button>`).join("")}`;
+  $("#quizbox").querySelectorAll(".opt").forEach(b=>b.onclick=()=>{
+    const ok=Number(b.dataset.o)===curQ.i;total++;if(ok)score++;
+    $("#quizbox").querySelectorAll(".opt").forEach(x=>{x.disabled=true;if(Number(x.dataset.o)===curQ.i)x.classList.add("good")});
+    if(!ok)b.classList.add("bad");
+    $("#quizbox").insertAdjacentHTML("beforeend",`<div class="btns"><button class="btn" id="nx">Next question</button></div>`);
+    $("#nx").onclick=nextQ;
+  });
+}
+
+/* ---------- stock tab ---------- */
+const F=["partno","name","category","uom","fits","location","qty","price"];
+$("#save").onclick=()=>{
+  const p={brand:""};["partno","name","category","fits","location","price"].forEach(f=>p[f]=$("#f_"+f).value.trim());
+  if(!p.partno||!p.name){alert("Part number and name are required.");return}
+  p.price=p.price===""?"":Number(p.price);p.qty="";p.uom="";
+  parts.unshift(p);save();renderFilters();renderFind();
+  ["partno","name","category","fits","location","price"].forEach(f=>$("#f_"+f).value="");toast("Part added");
+};
+function parseCSV(t){
+  const rows=[];let r=[],c="",q=false;
+  for(let i=0;i<t.length;i++){const ch=t[i];
+    if(q){if(ch=='"'){if(t[i+1]=='"'){c+='"';i++}else q=false}else c+=ch}
+    else if(ch=='"')q=true;
+    else if(ch==","||ch=="\t"||ch==";"){r.push(c);c=""}
+    else if(ch=="\n"){r.push(c);rows.push(r);r=[];c=""}
+    else if(ch!="\r")c+=ch;
+  }
+  if(c!==""||r.length){r.push(c);rows.push(r)}
+  return rows.filter(r=>r.some(x=>x.trim()!==""));
+}
+const ALIAS={partno:["partno","partnumber","part","partnum","itemno","itemcode","sku","code","stockcode"],
+name:["name","description","desc","itemname","partname","itemdescription"],
+category:["category","group","type","class","productgroup","itemgroup","stockgroup"],
+uom:["uom","unit","baseuom"],
+fits:["fits","application","applications","fitment","model","machine","models","usedon","desc2","description2","remark1","remarks","note"],
+location:["location","bin","binlocation","shelf","loc","rack","binno","shelfno"],
+qty:["qty","quantity","qtyonhand","onhand","stock","instock","balance","balqty","balanceqty","totalqty"],
+price:["price","sellprice","sellingprice","unitprice","retail","stdprice","price1"]};
+$("#file").onchange=async e=>{
+  const f=e.target.files[0];if(!f)return;
+  const rows=parseCSV((await f.text()).replace(/^﻿/,""));
+  if(rows.length<2){$("#importmsg").textContent="File looks empty.";return}
+  const head=rows[0].map(compact),idx={};
+  for(const k in ALIAS)idx[k]=head.findIndex(h=>ALIAS[k].includes(h));
+  if(idx.partno<0||idx.name<0){$("#importmsg").textContent="Could not find a part number and a name/description column. Found: "+rows[0].join(", ");return}
+  const g=(r,k)=>idx[k]>=0?(r[idx[k]]||"").trim():"";
+  const imp=rows.slice(1).map(r=>({partno:g(r,"partno"),name:g(r,"name"),brand:"",category:g(r,"category"),uom:g(r,"uom"),fits:g(r,"fits"),location:g(r,"location"),qty:g(r,"qty")===""?"":Number(g(r,"qty"))||0,price:g(r,"price")===""?"":Number(g(r,"price"))||0})).filter(p=>p.partno);
+  if($("#replace").checked)parts=imp;
+  else{const m=new Map(parts.map(p=>[p.partno,p]));imp.forEach(p=>{const o=m.get(p.partno);if(o){if(!p.location)p.location=o.location;if(!p.fits)p.fits=o.fits;if(p.qty==="")p.qty=o.qty}m.set(p.partno,p)});parts=[...m.values()]}
+  save();renderFilters();renderFind();
+  $("#importmsg").textContent=`Imported ${imp.length.toLocaleString()} parts. Columns not found: ${Object.keys(idx).filter(k=>idx[k]<0).join(", ")||"none"}.`;
+  e.target.value="";
+};
+$("#photos").onchange=async e=>{
+  const files=[...e.target.files];if(!files.length)return;
+  const byKey=new Map();parts.forEach(p=>{const k=compact(p.partno);if(k&&!byKey.has(k))byKey.set(k,p.partno)});
+  let ok=0,miss=[];
+  for(let i=0;i<files.length;i++){
+    $("#photomsg").textContent=`Working… ${i+1} / ${files.length}`;
+    const pn=byKey.get(compact(files[i].name.replace(/\.[^.]+$/,"")));
+    if(!pn){miss.push(files[i].name);continue}
+    const b=await resize(files[i]);if(b&&await putPhoto(pn,b))ok++;else miss.push(files[i].name);
+  }
+  $("#photomsg").textContent=`Saved ${ok} photo${ok===1?"":"s"}.`+(miss.length?` No matching part for: ${miss.slice(0,8).join(", ")}${miss.length>8?" …":""}`:"");
+  e.target.value="";renderFind();
+};
+$("#export").onclick=()=>{
+  const q=v=>'"'+String(v??"").replace(/"/g,'""')+'"';
+  const csv="﻿"+[F.join(","),...parts.map(p=>F.map(f=>q(p[f])).join(","))].join("\r\n");
+  const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv"}));a.download="parts_backup.csv";a.click();
+};
+
+renderFilters();renderFind();renderLearn();openDB();
+</script>
+</body>
+</html>
