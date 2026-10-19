@@ -166,7 +166,6 @@ details.sys p{color:var(--mute);margin:8px 0 0}
       <input class="in" id="f_category" placeholder="Part group">
       <input class="in" id="f_fits" placeholder="Fits (Hino 500; Ford 6610)">
       <input class="in" id="f_location" placeholder="Location (A2-S3-B4)">
-      <input class="in" id="f_price" type="number" step="0.01" placeholder="Price">
     </div>
     <div class="btns"><button class="btn" id="save">Add part</button></div>
   </div>
@@ -178,7 +177,7 @@ details.sys p{color:var(--mute);margin:8px 0 0}
 <script>
 /* ---------- reference data ---------- */
 const SAMPLE=[
-{partno:"DEMO-1",name:"Demo part (import your CSV on the Stock tab)",brand:"",category:"DEMO",fits:"Hino 500",location:"A1-S1",qty:"",price:10,uom:"PC"}
+{partno:"DEMO-1",name:"Demo part (import your CSV on the Stock tab)",brand:"",category:"DEMO",fits:"Hino 500",location:"A1-S1",qty:"",price:"",uom:"PC"}
 ];
 const SYSTEMS=[
 ["engine","Engine (diesel)","Burns fuel by compressing air until it is hot enough to ignite injected diesel (no spark plugs). Key parts: block, pistons, rings, crankshaft, bearings, cylinder head, valves, injectors, turbocharger. Tractors run low rpm / high torque; trucks add a turbo and intercooler. Wear items: filters, injectors, gaskets, belts."],
@@ -292,7 +291,7 @@ function save(){try{localStorage.setItem(KEY,JSON.stringify(parts.map(pack)))}ca
 try{const s=localStorage.getItem(KEY);if(s)parts=JSON.parse(s).map(unpack)}catch(e){}
 if(!parts.length){
   const seed=document.getElementById("seed");
-  parts=seed?JSON.parse(seed.textContent).map(r=>({partno:r[0],name:r[1],brand:"",category:r[2],fits:"",location:"",qty:"",price:r[4]===""?"":Number(r[4]),uom:r[3]})):SAMPLE.map(p=>({...p}));
+  parts=seed?JSON.parse(seed.textContent).map(r=>({partno:r[0],name:r[1],brand:"",category:r[2],fits:"",location:"",qty:"",price:"",uom:r[3]})):SAMPLE.map(p=>({...p}));
 }
 
 /* tags computed (not stored) */
@@ -359,7 +358,7 @@ function card(p){
   return `<div class="card" data-pn="${esc(p.partno)}">${th}<div class="meta"><div class="pn">${esc(p.partno)}</div><div class="nm">${esc(p.name||p.partno)}</div>
   <div class="tags">${typeTag}${tags}</div>
   <div class="row2"><span class="locpill ${p.location?"":"none"}">${p.location?"📍 "+esc(p.location):"No location yet"}</span>
-  <span class="price">${q!==""?(q>0?q+" in stock":"Out of stock"):(p.price!==""&&p.price!=null?"RM "+Number(p.price).toFixed(2):"")}</span></div></div></div>`;
+  <span class="price">${q!==""?(q>0?q+" in stock":"Out of stock"):""}</span></div></div></div>`;
 }
 function renderFind(){
   const r=search($("#q").value);
@@ -434,7 +433,7 @@ async function openSheet(pn){
   const art=photo?`<img id="pimg" src="${URL.createObjectURL(photo)}">`:artFor(p);
   $("#panel").innerHTML=`<div class="ph"><button class="x" id="cx">✕</button><div class="art">${art}</div>
    <div class="pn">${esc(p.partno)}</div><h2>${esc(p.name||p.partno)}</h2>
-   <div class="sub">${esc([p.category,p.uom].filter(Boolean).join(" · "))}${p.price!==""&&p.price!=null?" · RM "+Number(p.price).toFixed(2):""}</div>
+   <div class="sub">${esc([p.category,p.uom].filter(Boolean).join(" · "))}</div>
    <div class="bigloc"><small>Shelf location</small><b>${esc(p.location||"Not set")}</b></div></div>
   <div class="pb">
    <div class="box"><h4>Suitable for</h4>
@@ -511,13 +510,13 @@ function nextQ(){
 }
 
 /* ---------- stock tab ---------- */
-const F=["partno","name","category","uom","fits","location","qty","price"];
+const F=["partno","name","category","uom","fits","location","qty"];
 $("#save").onclick=()=>{
-  const p={brand:""};["partno","name","category","fits","location","price"].forEach(f=>p[f]=$("#f_"+f).value.trim());
+  const p={brand:""};["partno","name","category","fits","location"].forEach(f=>p[f]=$("#f_"+f).value.trim());
   if(!p.partno||!p.name){alert("Part number and name are required.");return}
-  p.price=p.price===""?"":Number(p.price);p.qty="";p.uom="";
+  p.price="";p.qty="";p.uom="";
   parts.unshift(p);save();renderFilters();renderFind();
-  ["partno","name","category","fits","location","price"].forEach(f=>$("#f_"+f).value="");toast("Part added");
+  ["partno","name","category","fits","location"].forEach(f=>$("#f_"+f).value="");toast("Part added");
 };
 function parseCSV(t){
   const rows=[];let r=[],c="",q=false;
@@ -537,8 +536,7 @@ category:["category","group","type","class","productgroup","itemgroup","stockgro
 uom:["uom","unit","baseuom"],
 fits:["fits","application","applications","fitment","model","machine","models","usedon","desc2","description2","remark1","remarks","note"],
 location:["location","bin","binlocation","shelf","loc","rack","binno","shelfno"],
-qty:["qty","quantity","qtyonhand","onhand","stock","instock","balance","balqty","balanceqty","totalqty"],
-price:["price","sellprice","sellingprice","unitprice","retail","stdprice","price1"]};
+qty:["qty","quantity","qtyonhand","onhand","stock","instock","balance","balqty","balanceqty","totalqty"]};
 $("#file").onchange=async e=>{
   const f=e.target.files[0];if(!f)return;
   const rows=parseCSV((await f.text()).replace(/^﻿/,""));
@@ -547,7 +545,7 @@ $("#file").onchange=async e=>{
   for(const k in ALIAS)idx[k]=head.findIndex(h=>ALIAS[k].includes(h));
   if(idx.partno<0||idx.name<0){$("#importmsg").textContent="Could not find a part number and a name/description column. Found: "+rows[0].join(", ");return}
   const g=(r,k)=>idx[k]>=0?(r[idx[k]]||"").trim():"";
-  const imp=rows.slice(1).map(r=>({partno:g(r,"partno"),name:g(r,"name"),brand:"",category:g(r,"category"),uom:g(r,"uom"),fits:g(r,"fits"),location:g(r,"location"),qty:g(r,"qty")===""?"":Number(g(r,"qty"))||0,price:g(r,"price")===""?"":Number(g(r,"price"))||0})).filter(p=>p.partno);
+  const imp=rows.slice(1).map(r=>({partno:g(r,"partno"),name:g(r,"name"),brand:"",category:g(r,"category"),uom:g(r,"uom"),fits:g(r,"fits"),location:g(r,"location"),qty:g(r,"qty")===""?"":Number(g(r,"qty"))||0,price:""})).filter(p=>p.partno);
   if($("#replace").checked)parts=imp;
   else{const m=new Map(parts.map(p=>[p.partno,p]));imp.forEach(p=>{const o=m.get(p.partno);if(o){if(!p.location)p.location=o.location;if(!p.fits)p.fits=o.fits;if(p.qty==="")p.qty=o.qty}m.set(p.partno,p)});parts=[...m.values()]}
   save();renderFilters();renderFind();
