@@ -87,6 +87,12 @@ details.sys p{color:var(--mute);margin:8px 0 0}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 @media(max-width:560px){.grid2{grid-template-columns:1fr}.term{flex-direction:column;gap:2px}}
 @media(max-width:520px){nav.top .logo{display:none}}
+.dimgwrap{overflow:auto;max-height:75vh;border-radius:14px;background:#fff;border:1px solid var(--line);touch-action:pan-x pan-y}
+.dimgin{position:relative}
+.dimgin img{width:100%;display:block;user-select:none;-webkit-user-drag:none}
+.spot{position:absolute;transform:translate(-50%,-50%);min-width:26px;height:26px;padding:0 6px;border-radius:13px;background:var(--blue);color:#fff;font:700 13px/26px -apple-system,Segoe UI,sans-serif;text-align:center;cursor:pointer;box-shadow:0 0 0 3px rgba(255,255,255,.85),0 2px 8px rgba(0,0,0,.4)}
+.spot.sel{background:#ff9f0a;box-shadow:0 0 0 4px #fff,0 0 0 8px rgba(255,159,10,.45)}
+.btns small{font-size:11px;opacity:.75}
 #dsvg{width:100%;height:auto;display:block}
 #dsvg .dp{cursor:pointer}
 #dsvg .dp *{stroke:var(--ink);stroke-width:2.2;stroke-linejoin:round;stroke-linecap:round;fill:var(--card)}
@@ -154,8 +160,14 @@ details.sys p{color:var(--mute);margin:8px 0 0}
   <h2 class="big">Parts diagrams.</h2>
   <p class="mute">Tap a number (or a part) to see what it does, what goes wrong, and what you have in stock.</p>
   <div class="seg" id="dtabs" style="margin:8px 0 12px"></div>
-  <div class="box"><svg id="dsvg" viewBox="0 0 840 520" role="img" aria-label="Parts diagram"></svg>
+  <div class="box" id="dimgbox" style="display:none"></div>
+  <div class="box" id="dsvgbox"><svg id="dsvg" viewBox="0 0 840 520" role="img" aria-label="Parts diagram"></svg>
     <div class="mute" style="font-size:12px">Simplified learning drawing, not a manufacturer's exact drawing. Real parts differ by engine and model.</div></div>
+  <div class="box"><h4>Your own diagrams</h4>
+    <p class="mute">Take a photo or screenshot of an exploded view from your parts book or supplier catalogue, then tap the numbers on it and link each one to a stock item. Tapping a number then shows the part, its stock and its shelf. Pictures stay on this phone only.</p>
+    <div class="btns"><label class="btn" style="cursor:pointer">＋ Add a diagram picture<input type="file" id="dfile" accept="image/*" hidden></label>
+    <button class="btn sec" id="d_export">Export diagrams</button>
+    <label class="btn sec" style="cursor:pointer">Import diagrams<input type="file" id="d_import" accept="application/json,.json" hidden></label></div></div>
   <div class="legend" id="dlegend"></div>
   <div class="box" id="dinfo" style="margin-top:12px"></div>
 </div></section>
@@ -340,8 +352,8 @@ function artFor(p){const t=tagsOf(p).types[0];return ART[t]||ART.Part}
 
 /* photos (IndexedDB) */
 let db=null;const photoKeys=new Set();
-function openDB(){return new Promise(res=>{try{const r=indexedDB.open("pf-photos",1);r.onupgradeneeded=()=>r.result.createObjectStore("p");r.onsuccess=()=>{db=r.result;
-  try{const q=db.transaction("p").objectStore("p").getAllKeys();q.onsuccess=()=>{q.result.forEach(k=>photoKeys.add(k));res();renderFind()}}catch(e){res()}};r.onerror=()=>res()}catch(e){res()}})}
+function openDB(){return new Promise(res=>{try{const r=indexedDB.open("pf-photos",2);r.onupgradeneeded=()=>{const d=r.result;if(!d.objectStoreNames.contains("p"))d.createObjectStore("p");if(!d.objectStoreNames.contains("d"))d.createObjectStore("d")};r.onsuccess=()=>{db=r.result;
+  try{const q=db.transaction("p").objectStore("p").getAllKeys();q.onsuccess=()=>{q.result.forEach(k=>photoKeys.add(k));res();renderFind();loadUserD()}}catch(e){res()}};r.onerror=()=>res()}catch(e){res()}})}
 function getPhoto(k){return new Promise(res=>{if(!db||!photoKeys.has(k))return res(null);try{const q=db.transaction("p").objectStore("p").get(k);q.onsuccess=()=>res(q.result||null);q.onerror=()=>res(null)}catch(e){res(null)}})}
 function putPhoto(k,blob){return new Promise(res=>{if(!db)return res(false);try{const t=db.transaction("p","readwrite");t.objectStore("p").put(blob,k);t.oncomplete=()=>{photoKeys.add(k);res(true)};t.onerror=()=>res(false)}catch(e){res(false)}})}
 function resize(file,max=800){return new Promise(res=>{const img=new Image();img.onload=()=>{const s=Math.min(1,max/Math.max(img.width,img.height));const c=document.createElement("canvas");c.width=img.width*s;c.height=img.height*s;c.getContext("2d").drawImage(img,0,0,c.width,c.height);c.toBlob(b=>res(b),"image/jpeg",.8)};img.onerror=()=>res(null);img.src=URL.createObjectURL(file)})}
@@ -667,10 +679,90 @@ const DIAGRAMS=[
 ]}];
 let dCur=0,dSel=1;
 function countFor(q){const tk=norm(q).split(" ").filter(Boolean);let n=0;for(const p of parts){tagsOf(p);if(tk.every(t=>p._h.includes(t)))n++}return n}
+/* ----- your own diagrams: a real exploded-view image + numbered hotspots linked to stock ----- */
+let userD=[],uCur=-1,uEdit=false,uZoom=100,uSpot=null;
+function dbOp(store,mode,fn){return new Promise(res=>{if(!db)return res(null);try{const t=db.transaction(store,mode);const r=fn(t.objectStore(store));t.oncomplete=()=>res(r&&r.result!==undefined?r.result:true);t.onerror=()=>res(null)}catch(e){res(null)}})}
+async function loadUserD(){
+  userD=[];if(!db)return;
+  await new Promise(res=>{try{const q=db.transaction("d").objectStore("d").openCursor();q.onsuccess=()=>{const c=q.result;if(c){userD.push({id:c.key,...c.value});c.continue()}else res()};q.onerror=()=>res()}catch(e){res()}});
+  renderDiagram();
+}
+const saveU=d=>dbOp("d","readwrite",s=>s.put({title:d.title,img:d.img,spots:d.spots},d.id));
+function renderUser(){
+  const d=userD[uCur];if(!d)return;
+  if(!d._url)d._url=URL.createObjectURL(d.img);
+  $("#dimgbox").style.display="block";$("#dsvgbox").style.display="none";$("#dlegend").innerHTML="";
+  const spots=d.spots.map((s,i)=>`<div class="spot ${uSpot===i?"sel":""}" data-i="${i}" style="left:${s.x}%;top:${s.y}%">${esc(s.n)}</div>`).join("");
+  $("#dimgbox").innerHTML=`<div class="btns" style="margin:0 0 8px">
+    <button class="btn sec" id="u_zm">−</button><button class="btn sec" id="u_zp">＋</button>
+    <button class="btn ${uEdit?"":"sec"}" id="u_ed">${uEdit?"Done editing":"✎ Edit numbers"}</button>
+    <button class="btn sec" id="u_del">Delete</button></div>
+   <div class="mute" style="margin-bottom:6px">${uEdit?"Tap the picture where a number is, then pick its part.":"Tap a number to see the part, its stock and shelf."}</div>
+   <div class="dimgwrap"><div class="dimgin" id="u_in" style="width:${uZoom}%"><img src="${d._url}" alt="${esc(d.title)}" draggable="false">${spots}</div></div>`;
+  $("#u_zm").onclick=()=>{uZoom=Math.max(100,uZoom-50);renderUser()};
+  $("#u_zp").onclick=()=>{uZoom=Math.min(400,uZoom+50);renderUser()};
+  $("#u_ed").onclick=()=>{uEdit=!uEdit;uSpot=null;renderUser();$("#dinfo").innerHTML=""};
+  $("#u_del").onclick=async()=>{if(!confirm("Delete diagram “"+d.title+"”?"))return;await dbOp("d","readwrite",s=>s.delete(d.id));userD.splice(uCur,1);uCur=-1;uSpot=null;renderDiagram()};
+  $("#u_in").onclick=e=>{
+    const sp=e.target.closest(".spot");
+    if(sp){uSpot=+sp.dataset.i;renderUser();userInfo();return}
+    if(!uEdit)return;
+    const r=$("#u_in").getBoundingClientRect();
+    if(!r.width||!r.height)return;
+    const x=+((e.clientX-r.left)/r.width*100).toFixed(2),y=+((e.clientY-r.top)/r.height*100).toFixed(2);
+    const next=d.spots.reduce((m,s)=>Math.max(m,parseInt(s.n)||0),0)+1;
+    d.spots.push({n:String(next),x,y,pn:""});uSpot=d.spots.length-1;renderUser();userInfo();
+  };
+}
+function userInfo(){
+  const d=userD[uCur],s=d&&d.spots[uSpot];if(!s){$("#dinfo").innerHTML="";return}
+  const p=s.pn?parts.find(x=>compact(x.partno)===compact(s.pn)):null;
+  if(uEdit){
+    $("#dinfo").innerHTML=`<h4>Edit number</h4><div class="grid2"><input class="in" id="e_n" value="${esc(s.n)}" placeholder="Number"><input class="in" id="e_q" placeholder="Search part no. or name" value="${esc(s.pn)}"></div>
+     <div class="btns" id="e_res"></div><div class="mute">${p?"Linked to "+esc(p.partno)+" · "+esc(p.name):(s.pn?"No stock item matches “"+esc(s.pn)+"” yet.":"Not linked yet.")}</div>
+     <div class="btns"><button class="btn" id="e_ok">Save</button><button class="btn sec" id="e_rm">Remove number</button></div>`;
+    const fill=()=>{const v=$("#e_q").value.trim();const r=v.length<2?[]:search(v).slice(0,6);$("#e_res").innerHTML=r.map(x=>`<button class="btn sec" data-pn="${esc(x.p.partno)}">${esc(x.p.partno)}<br><small>${esc((x.p.name||"").slice(0,40))}</small></button>`).join("");
+      $("#e_res").querySelectorAll("button").forEach(b=>b.onclick=()=>{$("#e_q").value=b.dataset.pn;s.pn=b.dataset.pn;$("#e_res").innerHTML=""})};
+    $("#e_q").oninput=fill;fill();
+    $("#e_ok").onclick=async()=>{s.n=$("#e_n").value.trim()||s.n;s.pn=$("#e_q").value.trim();await saveU(d);toast("Saved");renderUser();userInfo()};
+    $("#e_rm").onclick=async()=>{d.spots.splice(uSpot,1);uSpot=null;await saveU(d);renderUser();$("#dinfo").innerHTML=""};
+    return;
+  }
+  if(!p){$("#dinfo").innerHTML=`<h4>Number ${esc(s.n)}</h4><p class="mute">${s.pn?"“"+esc(s.pn)+"” is not in your stock list.":"No part linked to this number yet. Tap “Edit numbers” to link one."}</p>`;return}
+  $("#dinfo").innerHTML=`<h4>Number ${esc(s.n)}</h4><div class="pn">${esc(p.partno)}</div><div style="font-size:24px;font-weight:700;letter-spacing:-.02em;margin:2px 0 8px">${esc(p.name||p.partno)}</div>
+   <div class="tags"><span class="locpill ${p.location?"":"none"}">${p.location?"📍 "+esc(p.location):"No location yet"}</span>${p.qty!==""&&p.qty!=null?`<span class="tag">${esc(p.qty)} in stock</span>`:""}</div>
+   <div class="btns"><button class="btn" id="u_open">Open part</button></div>`;
+  $("#u_open").onclick=()=>openSheet(p.partno);
+}
+$("#dfile").onchange=async e=>{
+  const f=e.target.files[0];if(!f)return;
+  const name=prompt("Name this diagram (e.g. Hino 500 fuel pump)",f.name.replace(/\.[^.]+$/,""));if(name===null){e.target.value="";return}
+  const b=await resize(f,2200);if(!b){toast("Could not read that picture");return}
+  const id="d"+Date.now();const rec={id,title:name.trim()||"Diagram",img:b,spots:[]};
+  if(!await saveU(rec)){toast("Could not save on this device");return}
+  userD.push(rec);uCur=userD.length-1;uEdit=true;uSpot=null;e.target.value="";renderDiagram();
+  toast("Now tap the picture to add numbers");
+};
+function blobToDataURL(b){return new Promise(r=>{const f=new FileReader();f.onload=()=>r(f.result);f.readAsDataURL(b)})}
+$("#d_export").onclick=async()=>{
+  if(!userD.length){toast("No diagrams to export");return}
+  const out=[];for(const d of userD)out.push({title:d.title,spots:d.spots,img:await blobToDataURL(d.img)});
+  const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([JSON.stringify(out)],{type:"application/json"}));a.download="my_diagrams.json";a.click();
+};
+$("#d_import").onchange=async e=>{
+  const f=e.target.files[0];if(!f)return;
+  try{const arr=JSON.parse(await f.text());let n=0;
+    for(const x of arr){const blob=await(await fetch(x.img)).blob();const rec={id:"d"+Date.now()+n,title:x.title,img:blob,spots:x.spots||[]};await saveU(rec);userD.push(rec);n++}
+    toast("Imported "+n+" diagram"+(n===1?"":"s"));renderDiagram();
+  }catch(err){toast("That file is not a diagram backup")}
+  e.target.value="";
+};
 function renderDiagram(){
+  $("#dtabs").innerHTML=DIAGRAMS.map((x,i)=>`<button class="${uCur<0&&i===dCur?"on":""}" data-i="${i}">${esc(x.title)}</button>`).join("")+userD.map((x,i)=>`<button class="${uCur===i?"on":""}" data-u="${i}">${esc(x.title)}</button>`).join("");
+  $("#dtabs").querySelectorAll("button").forEach(b=>b.onclick=()=>{if(b.dataset.u!==undefined){uCur=+b.dataset.u;uEdit=false;uSpot=null;uZoom=100;renderDiagram();$("#dinfo").innerHTML=""}else{uCur=-1;dCur=+b.dataset.i;dSel=1;renderDiagram()}});
+  if(uCur>=0){renderUser();return}
+  $("#dimgbox").style.display="none";$("#dsvgbox").style.display="block";
   const d=DIAGRAMS[dCur];
-  $("#dtabs").innerHTML=DIAGRAMS.map((x,i)=>`<button class="${i===dCur?"on":""}" data-i="${i}">${esc(x.title)}</button>`).join("");
-  $("#dtabs").querySelectorAll("button").forEach(b=>b.onclick=()=>{dCur=+b.dataset.i;dSel=1;renderDiagram()});
   $("#dsvg").innerHTML=d.svg();
   $("#dlegend").innerHTML=d.parts.map(p=>`<button data-n="${p[0]}"><b>${p[0]}</b>${esc(p[1])}</button>`).join("");
   $("#dlegend").querySelectorAll("button").forEach(b=>b.onclick=()=>selPart(+b.dataset.n));
