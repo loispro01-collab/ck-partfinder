@@ -86,6 +86,23 @@ details.sys p{color:var(--mute);margin:8px 0 0}
 .good{background:var(--ok)!important;color:#fff!important}.bad{background:var(--warn)!important;color:#fff!important}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 @media(max-width:560px){.grid2{grid-template-columns:1fr}.term{flex-direction:column;gap:2px}}
+@media(max-width:520px){nav.top .logo{display:none}}
+#dsvg{width:100%;height:auto;display:block}
+#dsvg .dp{cursor:pointer}
+#dsvg .dp *{stroke:var(--ink);stroke-width:2.2;stroke-linejoin:round;stroke-linecap:round;fill:var(--card)}
+#dsvg .dp .n{fill:none}
+#dsvg .dp .d{stroke-dasharray:6 5}
+#dsvg .dp.sel *{stroke:var(--blue);stroke-width:3.6}
+#dsvg .ax{stroke:var(--mute);stroke-width:1.5;stroke-dasharray:10 5 2 5;fill:none}
+#dsvg .co{cursor:pointer}
+#dsvg .co line{stroke:var(--mute);stroke-width:1.5}
+#dsvg .co circle{fill:var(--ink)}
+#dsvg .co text{fill:var(--bg);font:700 14px -apple-system,Segoe UI,sans-serif;text-anchor:middle;dominant-baseline:central}
+#dsvg .co.sel circle{fill:var(--blue)}#dsvg .co.sel text{fill:#fff}
+.legend{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:6px;margin-top:10px}
+.legend button{display:flex;gap:8px;align-items:center;text-align:left;border:0;background:var(--seg);color:var(--ink);font:inherit;font-size:14px;border-radius:12px;padding:6px 10px;cursor:pointer}
+.legend button b{flex:none;width:22px;height:22px;border-radius:50%;background:var(--ink);color:var(--bg);display:grid;place-items:center;font-size:12px}
+.legend button.sel{background:var(--blue);color:#fff}.legend button.sel b{background:#fff;color:var(--blue)}
 .gal{display:flex;gap:10px;overflow-x:auto;padding:4px 0 8px}
 .gal a{flex:none;width:190px;text-decoration:none;color:var(--mute)}
 .gal img{width:190px;height:135px;object-fit:cover;border-radius:12px;background:var(--seg);display:block}
@@ -98,6 +115,7 @@ details.sys p{color:var(--mute);margin:8px 0 0}
   <span class="logo">PartFinder</span>
   <button data-tab="find" class="on">Find</button>
   <button data-tab="learn">Learn</button>
+  <button data-tab="diagrams">Diagrams</button>
   <button data-tab="quiz">Quiz</button>
   <button data-tab="stock">Stock</button>
 </nav>
@@ -130,6 +148,16 @@ details.sys p{color:var(--mute);margin:8px 0 0}
   <div id="systems"></div>
   <h2 class="big" style="font-size:28px">Glossary</h2>
   <div class="box" id="glossary"></div>
+</div></section>
+
+<section id="diagrams" class="tab"><div class="wrap">
+  <h2 class="big">Parts diagrams.</h2>
+  <p class="mute">Tap a number (or a part) to see what it does, what goes wrong, and what you have in stock.</p>
+  <div class="seg" id="dtabs" style="margin:8px 0 12px"></div>
+  <div class="box"><svg id="dsvg" viewBox="0 0 840 520" role="img" aria-label="Parts diagram"></svg>
+    <div class="mute" style="font-size:12px">Simplified learning drawing, not a manufacturer's exact drawing. Real parts differ by engine and model.</div></div>
+  <div class="legend" id="dlegend"></div>
+  <div class="box" id="dinfo" style="margin-top:12px"></div>
 </div></section>
 
 <section id="quiz" class="tab"><div class="wrap">
@@ -571,7 +599,95 @@ $("#export").onclick=()=>{
   const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv"}));a.download="parts_backup.csv";a.click();
 };
 
-renderFilters();renderFind();renderLearn();openDB();
+/* ---------- diagrams (parts-book style) ---------- */
+function co(n,cx,cy,tx,ty){return `<g class="co" data-n="${n}"><line x1="${cx}" y1="${cy}" x2="${tx}" y2="${ty}"/><circle cx="${cx}" cy="${cy}" r="13"/><text x="${cx}" y="${cy}">${n}</text></g>`}
+function fuelSvg(){
+  let inj="",pipes="",valves="",leak="";
+  for(let i=0;i<6;i++){const cx=480+36*i;
+    valves+=`<rect class="f" x="${cx-10}" y="150" width="20" height="26" rx="3"/>`;
+    pipes+=`<path class="n" d="M${cx},150 C${cx},128 ${cx+20},130 ${cx+20},110"/>`;
+    inj+=`<rect class="f" x="${cx+13}" y="48" width="14" height="62" rx="3"/><path class="f" d="M${cx+15},48 h10 v-8 h-10z"/>`;
+    leak+=`<path class="n d" d="M${cx+20},40 V32"/>`}
+  return `
+  <path class="ax" d="M10 495 H20"/>
+  <g class="dp" data-n="1"><rect class="f" x="20" y="410" width="110" height="80" rx="10"/><rect class="f" x="60" y="398" width="30" height="12" rx="2"/><path class="n" d="M32 430 h86 M32 450 h86"/></g>
+  <g class="dp" data-n="2"><rect class="f" x="165" y="322" width="60" height="18" rx="3"/><rect class="f" x="170" y="340" width="50" height="90" rx="6"/><rect class="f" x="188" y="430" width="14" height="14" rx="2"/><path class="n" d="M170 395 h50"/></g>
+  <g class="dp" data-n="3"><rect class="f" x="265" y="335" width="60" height="40" rx="5"/><circle class="n" cx="295" cy="355" r="9"/><path class="n" d="M295 375 v16 M283 391 h24"/></g>
+  <g class="dp" data-n="4"><rect class="f" x="355" y="322" width="60" height="18" rx="3"/><rect class="f" x="360" y="340" width="50" height="90" rx="6"/><path class="n" d="M372 350 v70 M385 350 v70 M398 350 v70"/></g>
+  <g class="dp" data-n="11"><rect class="f" x="480" y="300" width="170" height="14" rx="3"/><path class="f" d="M480 314 l-14 24 h28z M650 314 l-14 24 h28z"/></g>
+  <g class="dp" data-n="5"><rect class="f" x="450" y="190" width="230" height="110" rx="8"/><rect class="f" x="455" y="176" width="220" height="14" rx="3"/><path class="n d" d="M450 262 H680"/><circle class="n" cx="500" cy="245" r="16"/><circle class="n" cx="565" cy="245" r="16"/><circle class="n" cx="630" cy="245" r="16"/></g>
+  <g class="dp" data-n="6">${valves}${pipes}</g>
+  <g class="dp" data-n="7">${inj}</g>
+  <g class="dp" data-n="8"><path class="n d" d="M500 40 V32 H800 V485 H130"/>${leak}</g>
+  <g class="dp" data-n="9"><path class="n" d="M680 245 H690"/><circle class="f" cx="735" cy="245" r="45"/><circle class="n d" cx="735" cy="245" r="53"/><circle class="f" cx="735" cy="245" r="15"/></g>
+  <g class="dp" data-n="10"><path class="n" d="M130 445 H145 V331 H165"/><path class="n" d="M225 331 H245 V355 H265"/><path class="n" d="M325 355 H340 V331 H355"/><path class="n" d="M415 331 H435 V183 H455"/></g>
+  ${co(1,75,360,75,398)}${co(2,195,285,195,322)}${co(3,295,290,295,335)}${co(4,385,285,385,322)}
+  ${co(5,712,330,675,290)}${co(6,445,108,486,134)}${co(7,722,82,689,80)}${co(8,765,430,800,430)}
+  ${co(9,735,350,735,298)}${co(10,405,250,435,250)}${co(11,520,380,520,314)}`;
+}
+function hubSvg(){
+  return `
+  <path class="ax" d="M10 270 H780"/>
+  <g class="dp" data-n="1"><path class="f" d="M20 240 H140 V250 L205 256 V284 L140 290 V300 H20z"/><path class="n" d="M40 270 H120"/></g>
+  <g class="dp" data-n="2"><rect class="f" x="228" y="225" width="14" height="90" rx="3"/><path class="n" d="M232 235 V305"/></g>
+  <g class="dp" data-n="3"><rect class="f" x="262" y="215" width="30" height="110" rx="4"/><rect class="n" x="270" y="240" width="14" height="60"/><path class="n" d="M262 232 H292 M262 308 H292"/></g>
+  <g class="dp" data-n="4"><rect class="f" x="330" y="185" width="120" height="170" rx="6"/><rect class="f" x="450" y="150" width="22" height="240" rx="4"/><rect class="n d" x="340" y="238" width="100" height="64"/></g>
+  <g class="dp" data-n="6"><path class="f" d="M472 170 H532 V178 H472z M472 362 H532 V370 H472z"/></g>
+  <g class="dp" data-n="5"><rect class="f" x="500" y="125" width="92" height="290" rx="12"/><rect class="n d" x="508" y="135" width="62" height="270" rx="8"/></g>
+  <g class="dp" data-n="7"><rect class="f" x="624" y="225" width="26" height="90" rx="4"/><rect class="n" x="630" y="245" width="14" height="50"/></g>
+  <g class="dp" data-n="8"><rect class="f" x="668" y="235" width="9" height="70" rx="2"/></g>
+  <g class="dp" data-n="9"><rect class="f" x="694" y="232" width="44" height="76" rx="5"/><path class="n" d="M694 252 H738 M694 288 H738"/></g>
+  ${co(1,95,190,95,240)}${co(2,235,165,235,225)}${co(3,277,140,277,215)}${co(4,390,120,390,185)}
+  ${co(5,546,85,546,125)}${co(6,505,455,505,371)}${co(7,637,165,637,225)}${co(8,672,150,672,235)}${co(9,720,190,718,232)}`;
+}
+const DIAGRAMS=[
+{id:"fuel",title:"Fuel injection system",svg:fuelSvg,parts:[
+[1,"Fuel tank","Stores the diesel. Has a cap with a vent, a strainer on the pick-up tube and a drain for water and sediment.","Water or rust in the tank, blocked vent (engine starves and stalls), cracked or leaking seams.",["TANK","CAP"]],
+[2,"Fuel / water separator","First filter. Spins water and coarse dirt out of the diesel; the bowl at the bottom is drained regularly.","Full of water (drain it), clogged element, loose drain valve that sucks in air.",["F/FILTER","WATER SEPARATOR","SEPARATOR"]],
+[3,"Lift (feed) pump","A small pump driven by the pump camshaft. Pulls fuel from the tank and pushes it through the filters to the injection pump. Many have a hand primer for bleeding air.","Weak delivery, worn diaphragm or valves, air leaks. Engine starts then stalls or lacks power.",["LIFT PUMP","FEED PUMP","PRIMING"]],
+[4,"Fuel filter (secondary)","Final filter before the injection pump. It catches very fine particles that would wear the pump and injectors.","Blocked filter: loss of power, hard starting, black smoke. Change at the service interval.",["F/FILTER","FUEL FILTER"]],
+[5,"Injection pump","Builds very high pressure and delivers one precisely timed pulse of fuel per cylinder. Inline pumps have one plunger element per cylinder, driven by a camshaft. The governor controls speed.","Worn plungers (hard start, low power), timing off, leaking seals, contaminated fuel damage.",["INJ PUMP","INJECTION PUMP","PLUNGER","ELEMENT"]],
+[6,"Delivery valves & high-pressure pipes","Each cylinder has a delivery valve and a thick steel pipe carrying high-pressure fuel from the pump to its injector. All pipes are the same length so timing matches.","Cracked or leaking pipes, loose nuts, damaged cones. Never loosen a pipe while the engine is running.",["INJ PIPE","DELIVERY","HP PIPE"]],
+[7,"Injectors / nozzles","Spray the fuel into the cylinder as a fine mist at the right moment. Each opens when fuel pressure reaches its set value.","Dripping or blocked nozzles: rough idle, white or black smoke, knocking, high fuel use.",["NOZZLE","INJECTOR","HOLDER"]],
+[8,"Leak-off (return) line","Carries the small amount of fuel that leaks past the injectors, and spare fuel from the pump, back to the tank. Usually joined with banjo bolts and copper washers.","Leaks at banjo bolts, cracked pipe, blocked line. Replace the copper washers each time.",["BANJO","LEAK OFF","COPPER WASHER"]],
+[9,"Drive gear / coupling","Connects the injection pump to the engine's timing gears so the pump turns in step with the crankshaft. Timing marks must line up when fitting.","Worn splines or keyway, loose nut, wrong timing after reassembly.",["PUMP GEAR","COUPLING","GEAR"]],
+[10,"Low-pressure fuel lines","Rubber or steel lines carrying fuel from the tank through the filters to the pump. Air getting in here is the usual cause of hard starting.","Perished hoses, loose clips or unions that let air in, kinked lines.",["FUEL HOSE","HOSE","CLIP"]],
+[11,"Mounting bracket","Holds the injection pump firmly to the engine block so the drive stays aligned.","Cracks or loose bolts cause vibration and timing trouble.",["BRACKET"]]
+]},
+{id:"hub",title:"Wheel hub & drum (exploded)",svg:hubSvg,parts:[
+[1,"Axle spindle","The fixed shaft the wheel hub turns on. Its machined steps are where the bearings sit.","Worn or scored bearing seats, damaged threads at the end.",["SPINDLE","AXLE SHAFT"]],
+[2,"Oil seal","Keeps grease or gear oil in and dirt and water out. A leaking seal lets oil reach the brake lining and ruins the brakes.","Leaks, torn lip, fitted crooked. Always replace when the hub is removed.",["O/SEAL","OIL SEAL"]],
+[3,"Inner bearing","Tapered roller bearing that carries most of the wheel load. Pairs with the outer bearing and is set with the axle nut.","Noise, heat, play in the wheel, pitted rollers. Replace bearings and cups together.",["BRG","BEARING"]],
+[4,"Wheel hub","The rotating centre that carries the bearings, the wheel studs, the brake drum and the wheel.","Cracked flange, worn bearing cups, damaged studs holes.",["HUB"]],
+[5,"Brake drum","Bolts to the hub. The brake shoes press on its inside surface to stop the truck.","Heat cracks, deep grooves, out of round, worn beyond the limit stamped on it.",["DRUM","BRAKE DRUM"]],
+[6,"Wheel studs","Bolts pressed into the hub flange that hold the wheel and drum. The wheel nuts thread onto them.","Stretched or damaged threads, loose studs, broken studs. Replace in sets.",["STUD","HUB BOLT","WHEEL NUT"]],
+[7,"Outer bearing","Smaller tapered roller bearing on the outboard side. Carries side loads and keeps the hub centred.","Same as the inner bearing. Too loose or too tight setting shortens its life.",["BRG","BEARING"]],
+[8,"Lock washer","Sits between the bearing and the axle nut and stops the nut from turning off.","Bent or missing tab: the nut can back off and the wheel can come loose.",["WASHER","LOCK"]],
+[9,"Axle nut","Holds everything on the spindle and sets the bearing preload. Torqued to the maker's spec, then locked.","Wrong tightening gives hot bearings or wheel wobble. Always lock it after setting.",["AXLE NUT","NUT"]]
+]}];
+let dCur=0,dSel=1;
+function countFor(q){const tk=norm(q).split(" ").filter(Boolean);let n=0;for(const p of parts){tagsOf(p);if(tk.every(t=>p._h.includes(t)))n++}return n}
+function renderDiagram(){
+  const d=DIAGRAMS[dCur];
+  $("#dtabs").innerHTML=DIAGRAMS.map((x,i)=>`<button class="${i===dCur?"on":""}" data-i="${i}">${esc(x.title)}</button>`).join("");
+  $("#dtabs").querySelectorAll("button").forEach(b=>b.onclick=()=>{dCur=+b.dataset.i;dSel=1;renderDiagram()});
+  $("#dsvg").innerHTML=d.svg();
+  $("#dlegend").innerHTML=d.parts.map(p=>`<button data-n="${p[0]}"><b>${p[0]}</b>${esc(p[1])}</button>`).join("");
+  $("#dlegend").querySelectorAll("button").forEach(b=>b.onclick=()=>selPart(+b.dataset.n));
+  selPart(dSel);
+}
+function selPart(n){
+  dSel=n;const d=DIAGRAMS[dCur],p=d.parts.find(x=>x[0]===n);if(!p)return;
+  document.querySelectorAll("#dsvg [data-n],#dlegend [data-n]").forEach(el=>el.classList.toggle("sel",+el.dataset.n===n));
+  $("#dinfo").innerHTML=`<h4>Part ${p[0]}</h4><div style="font-size:24px;font-weight:700;letter-spacing:-.02em;margin-bottom:8px">${esc(p[1])}</div>
+   <div class="mute">What it does</div><p style="margin:2px 0 10px">${esc(p[2])}</p>
+   <div class="mute">Common problems</div><p style="margin:2px 0 10px">${esc(p[3])}</p>
+   <div class="mute">Look in your stock</div>
+   <div class="btns">${p[4].map(q=>`<button class="btn sec" data-q="${esc(q)}">${esc(q)} · ${countFor(q).toLocaleString()}</button>`).join("")}</div>`;
+  $("#dinfo").querySelectorAll("[data-q]").forEach(b=>b.onclick=()=>{fType="All";fBrand="";fGroup="";renderFilters();showTab("find");$("#q").value=b.dataset.q;renderFind()});
+}
+$("#dsvg").addEventListener("click",e=>{const g=e.target.closest("[data-n]");if(g)selPart(+g.dataset.n)});
+renderFilters();renderFind();renderLearn();renderDiagram();openDB();
 </script>
 </body>
 </html>
