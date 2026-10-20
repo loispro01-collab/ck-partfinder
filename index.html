@@ -167,6 +167,7 @@ details.sys p{color:var(--mute);margin:8px 0 0}
   <h2 class="big">Parts diagrams.</h2>
   <p class="mute">Tap a number (or a part) to see what it does, what goes wrong, and what you have in stock.</p>
   <div class="seg" id="dtabs" style="margin:8px 0 12px"></div>
+  <div class="box" id="dfits" style="display:none"></div>
   <div class="box" id="dimgbox" style="display:none"></div>
   <div class="box" id="dsvgbox">
     <div id="d3box" style="display:none">
@@ -707,7 +708,10 @@ const tube=(pts,r,mat)=>new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullR
 function rollers(g,n,rad,r1,r2,len,xc,mat){for(let i=0;i<n;i++){const a=i/n*Math.PI*2,m=cylX(r1,r2,len,mat,16);m.position.set(xc,Math.cos(a)*rad,Math.sin(a)*rad);g.add(m)}}
 function gearMesh(R,teeth,depth,mat){const s=new THREE.Shape(),n=teeth*4;for(let i=0;i<n;i++){const a=i/n*Math.PI*2,k=i%4,r=(k===1||k===2)?R:R*.87,x=Math.cos(a)*r,y=Math.sin(a)*r;if(i)s.lineTo(x,y);else s.moveTo(x,y)}s.closePath();const h=new THREE.Path();h.absarc(0,0,R*.3,0,Math.PI*2,true);s.holes.push(h);const g=new THREE.ExtrudeGeometry(s,{depth,bevelEnabled:true,bevelSize:.1,bevelThickness:.1,bevelSegments:1,curveSegments:24});g.translate(0,0,-depth/2);g.rotateY(Math.PI/2);return new THREE.Mesh(g,mat)}
 function hexNut(R,hole,depth,mat){const s=new THREE.Shape();for(let i=0;i<6;i++){const a=i/6*Math.PI*2+Math.PI/6,x=Math.cos(a)*R,y=Math.sin(a)*R;if(i)s.lineTo(x,y);else s.moveTo(x,y)}s.closePath();const h=new THREE.Path();h.absarc(0,0,hole,0,Math.PI*2,true);s.holes.push(h);const g=new THREE.ExtrudeGeometry(s,{depth,bevelEnabled:true,bevelSize:.12,bevelThickness:.12,bevelSegments:2,curveSegments:24});g.rotateY(Math.PI/2);return new THREE.Mesh(g,mat)}
-function partMaker(){const P={};return{P,mk:(n,dir,anc)=>{const g=new THREE.Group();g.userData.n=n;P[n]={g,dir:V3(...dir),anchor:V3(...anc)};return g}}}
+function partMaker(){const P={};return{P,
+  mk:(n,dir,anc)=>{const g=new THREE.Group();g.userData.n=n;P[n]={g,dir:V3(...dir),anchor:V3(...anc),subs:[]};return g},
+  /* a child group of part n that explodes in its own direction (e.g. left and right side of an axle) */
+  sub:(n,dir,pos)=>{const c=new THREE.Group();if(pos)c.position.set(...pos);P[n].g.add(c);P[n].subs.push({c,dir:V3(...dir),base:null});return c}}}
 
 function buildHub3D(){
   const steel=MT(0xc5ccd6,.95,.25),bright=MT(0xe8edf4,1,.15),iron=MT(0x6b7078,.8,.45),dark=MT(0x16171a,.1,.8);
@@ -834,12 +838,12 @@ function init3D(){
   const S={renderer,scene,camera,controls,root,t:1,parts:{},d:null,spin:false,tween:null,intro:false,home:null,labels:[]};
   const rs=()=>{const w=wrap.clientWidth,h=wrap.clientHeight;if(!w||!h)return;renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix()};
   new ResizeObserver(rs).observe(wrap);
-  S.apply=()=>{for(const n in S.parts){const p=S.parts[n];p.g.position.copy(p.base).addScaledVector(p.dir,S.t)}};
+  S.apply=()=>{for(const n in S.parts){const p=S.parts[n];p.g.position.copy(p.base).addScaledVector(p.dir,S.t);for(const s of p.subs)s.c.position.copy(s.base).addScaledVector(s.dir,S.t)}};
   S.highlight=n=>{for(const k in S.parts)S.parts[k].g.traverse(o=>{if(o.isMesh&&o.material.emissive){const on=+k===n;o.material.emissive.set(on?0x0a64ff:0x000000);o.material.emissiveIntensity=on?.6:0}})};
   S.load=d=>{
     while(root.children.length)root.remove(root.children[0]);
     const B=d.build3d();S.parts=B.parts;S.d=d;
-    for(const n in B.parts){const p=B.parts[n];p.g.traverse(o=>{if(o.isMesh){o.material=o.material.clone();o.userData.n=+n}});p.base=p.g.position.clone();root.add(p.g)}
+    for(const n in B.parts){const p=B.parts[n];p.g.traverse(o=>{if(o.isMesh){o.material=o.material.clone();o.userData.n=+n}});p.base=p.g.position.clone();for(const s of p.subs)s.base=s.c.position.clone();root.add(p.g)}
     const gc=document.createElement("canvas");gc.width=gc.height=256;const gx=gc.getContext("2d");const rg=gx.createRadialGradient(128,128,10,128,128,128);rg.addColorStop(0,"rgba(255,255,255,.22)");rg.addColorStop(1,"rgba(255,255,255,0)");gx.fillStyle=rg;gx.fillRect(0,0,256,256);
     const gp=new THREE.Mesh(new THREE.PlaneGeometry(190,190),new THREE.MeshBasicMaterial({map:new THREE.CanvasTexture(gc),transparent:true,depthWrite:false}));gp.rotation.x=-Math.PI/2;gp.position.set(B.target.x,B.floor,0);root.add(gp);
     const L=$("#d3labels");L.innerHTML="";S.labels=[];
@@ -877,7 +881,259 @@ function show3D(d){
   try{if(!G3)G3=init3D();if(G3.d!==d)G3.load(d);return true}
   catch(err){console.warn("3D unavailable",err);G3=null;return false}
 }
+/* ----- Hydraulic system (tractor loader circuit) ----- */
+function buildHyd3D(){
+  const steel=MT(0xdfe5ee,1,.2),bright=MT(0xf0f3f8,1,.1),cast=MT(0x6f7782,.8,.5),alu=MT(0xaab3bf,.85,.4),dark=MT(0x1b1d21,.15,.75),rub=MT(0x111214,.1,.9),paint=MT(0xd98f1c,.45,.4),brass=MT(0xcfa84e,1,.28),blue=MT(0x2f6fdd,.5,.3),red=MT(0xc2352b,.4,.45);
+  const glass=MT(0x9db4cc,.2,.15,{transparent:true,opacity:.28,depthWrite:false});
+  const {P,mk}=partMaker();let g;
+  g=mk(1,[-10,0,-6],[-41,13.8,-4]);
+  const tk=boxM(18,12,12,paint);tk.position.set(-41,6,-4);g.add(tk);
+  const ct=cylY(1.7,1.7,.8,dark,24);ct.position.set(-41,12.4,-4);g.add(ct);
+  const brt=cylY(.9,.9,1.6,steel,16);brt.position.set(-47,12.8,-4);g.add(brt);
+  const sg=cylZ(1.6,1.6,.5,glass,32);sg.position.set(-41,6,2.2);g.add(sg);
+  const sr=new THREE.Mesh(new THREE.TorusGeometry(1.7,.2,8,32),steel);sr.position.set(-41,6,2.3);g.add(sr);
+  const dr=cylY(.8,.8,.6,steel,6);dr.position.set(-41,-.2,-4);g.add(dr);
+  const sp=cylZ(1,1,1.2,steel,16);sp.position.set(-41,2,2.5);g.add(sp);
+  g=mk(2,[0,14,-4],[-36,21.2,-4]);
+  const fb=cylY(2.4,2.4,7,blue,40);fb.position.set(-36,15.5,-4);g.add(fb);
+  const fh=cylY(2.9,2.9,1.4,alu,40);fh.position.set(-36,19.7,-4);g.add(fh);
+  const fp=cylX(.6,.6,1.2,steel,16);fp.position.set(-32.9,19.7,-4);g.add(fp);
+  const ft=cylY(1,1,.8,steel,6);ft.position.set(-36,20.8,-4);g.add(ft);
+  g=mk(3,[-8,0,12],[-26,4.6,6]);
+  const pb=boxM(4.8,7,6,cast);pb.position.set(-26,-1,6);g.add(pb);
+  [-2.4,2.4].forEach(dx=>{const l=cylZ(3.5,3.5,6,cast,32);l.position.set(-26+dx,-1,6);g.add(l)});
+  const pc=boxM(9.6,7.6,1.2,alu);pc.position.set(-26,-1,9.6);g.add(pc);
+  for(let i=0;i<6;i++){const bx=-29+(i%3)*3,by=-1+(i<3?2.6:-2.6);const b=cylZ(.5,.5,.8,steel,6);b.position.set(bx,by,10.4);g.add(b)}
+  const ps=cylZ(1.1,1.1,5,bright,20);ps.position.set(-26,-1,12.4);g.add(ps);
+  const pf=boxM(11,9,1,alu);pf.position.set(-26,-1,2.5);g.add(pf);
+  const pi=cylX(1.3,1.3,2.5,steel,16);pi.position.set(-31.3,-1,6);g.add(pi);
+  const po=cylX(1.3,1.3,2.5,steel,16);po.position.set(-20.7,-1,6);g.add(po);
+  g=mk(5,[0,0,10],[-6,13.6,6]);
+  const vb=boxM(16,7,7,cast);vb.position.set(-6,-.5,6);g.add(vb);
+  [-10,-6,-2].forEach(x=>{const cap=boxM(3.2,1.2,5,alu);cap.position.set(x,3.6,6);g.add(cap);const lv=cylY(.45,.45,8,steel,10);lv.position.set(x,8,6);g.add(lv);const kb=new THREE.Mesh(new THREE.SphereGeometry(1,20,14),red);kb.position.set(x,12.4,6);g.add(kb)});
+  const rv=cylX(1.2,1.2,3,brass,20);rv.position.set(3.4,.5,6);g.add(rv);
+  [-10,-6].forEach(x=>{const pt=cylZ(1.1,1.1,1.6,steel,16);pt.position.set(x,-.5,9.8);g.add(pt)});
+  const rp=cylY(1,1,1.2,steel,16);rp.position.set(-1,4.1,6);g.add(rp);
+  g=mk(4,[0,-6,10],[-17,3.4,10]);
+  [[[-41,2,2.8],[-41,-2,8],[-33,-2.5,8],[-31.8,-1,6]],
+   [[-20.2,-1,6],[-18,2,10],[-16,1,8],[-14.4,0,6]],
+   [[-10,-.5,10.4],[-10,-4,14],[-2,-2,14],[6,9,4],[10,10,-4],[10,6,-4]],
+   [[-6,-.5,10.4],[-6,-6,16],[20,-6,16],[34,9,6],[34,10,-4],[34,6,-4]],
+   [[-1,4.7,6],[-1,10,8],[-20,22,2],[-32.4,19.7,-4]]].forEach(p=>g.add(tube(p,.75,rub)));
+  /* cylinder: built along +X at local origin, then placed at (8,0,-4) */
+  g=mk(6,[0,0,-6],[20,6.6,0]);g.position.set(8,0,-4);
+  g.add(latheX([[3.4,0],[4,0],[4,28],[3.4,28],[3.4,0]],glass));
+  g.add(latheX([[0,-1.5],[4.3,-1.5],[4.3,1],[0,1]],cast));
+  const lug=cylZ(2.4,2.4,5,cast,28);lug.position.set(-3.4,0,0);g.add(lug);
+  const lh=cylZ(1.2,1.2,5.2,dark,20);lh.position.set(-3.4,0,0);g.add(lh);
+  [2,26].forEach(x=>{const bs=cylY(1.5,1.5,1.4,cast,24);bs.position.set(x,4.6,0);g.add(bs)});
+  g=mk(7,[16,0,-6],[30,4,0]);g.position.set(8,0,-4);
+  const rod=cylX(1.8,1.8,36,bright,40);rod.position.set(24,0,0);g.add(rod);
+  const neck=cylX(2.3,2.3,3,steel,24);neck.position.set(43.5,0,0);g.add(neck);
+  const eye=cylZ(2.8,2.8,3.4,steel,32);eye.position.set(46,0,0);g.add(eye);
+  const eh=cylZ(1.3,1.3,3.6,dark,20);eh.position.set(46,0,0);g.add(eh);
+  g=mk(8,[5,0,-6],[7.5,4.8,0]);g.position.set(8,0,-4);
+  g.add(latheX([[1.8,6],[3.3,6],[3.3,9],[1.8,9],[1.8,6]],steel));
+  [6.8,8.3].forEach(x=>{const t=new THREE.Mesh(new THREE.TorusGeometry(3.3,.3,10,48),rub);t.rotation.y=Math.PI/2;t.position.x=x;g.add(t)});
+  const wr=new THREE.Mesh(new THREE.TorusGeometry(3.3,.2,8,48),brass);wr.rotation.y=Math.PI/2;wr.position.x=7.55;g.add(wr);
+  const pn=cylX(2.4,2.4,1,steel,6);pn.position.set(9.6,0,0);g.add(pn);
+  g=mk(9,[10,0,-6],[30.6,5.2,0]);g.position.set(8,0,-4);
+  g.add(latheX([[1.9,28],[4.3,28],[4.3,31],[3.2,31],[3.2,32.5],[1.9,32.5],[1.9,28]],cast));
+  g.add(latheX([[1.85,32.5],[2.7,32.5],[2.7,33.4],[1.85,33.4],[1.85,32.5]],dark));
+  const hs=new THREE.Mesh(new THREE.TorusGeometry(3.9,.25,8,48),rub);hs.rotation.y=Math.PI/2;hs.position.x=29;g.add(hs);
+  const rs2=new THREE.Mesh(new THREE.TorusGeometry(2.05,.2,8,36),rub);rs2.rotation.y=Math.PI/2;rs2.position.x=30;g.add(rs2);
+  g=mk(10,[0,4,8],[-14.2,3.2,6]);
+  [[-32.9,-1,6,'x'],[-19.4,-1,6,'x'],[-14.4,0,6,'x'],[-10,-.5,10.8,'z'],[-6,-.5,10.8,'z'],[10,6.4,-4,'y'],[34,6.4,-4,'y'],[-1,5.0,6,'y'],[-41,2,3.4,'z']].forEach(f=>{
+    const hex=f[3]==='x'?cylX(1.5,1.5,1.4,steel,6):f[3]==='y'?cylY(1.5,1.5,1.4,steel,6):cylZ(1.5,1.5,1.4,steel,6);
+    hex.position.set(f[0],f[1],f[2]);g.add(hex);
+    const rg=f[3]==='x'?cylX(1.1,1.1,2,brass,16):f[3]==='y'?cylY(1.1,1.1,2,brass,16):cylZ(1.1,1.1,2,brass,16);
+    rg.position.set(f[0]+(f[3]==='x'?.9:0),f[1]+(f[3]==='y'?.9:0),f[2]+(f[3]==='z'?.9:0));g.add(rg)});
+  return{parts:P,cam:V3(14,48,98),target:V3(10,4,0),floor:-10};
+}
+
+/* ----- Clutch, gearbox and propeller shaft ----- */
+function buildGear3D(){
+  const steel=MT(0xc5ccd6,.95,.25),bright=MT(0xe8edf4,1,.15),iron=MT(0x6b7078,.8,.45),fric=MT(0x6a4f33,.1,.9),brass=MT(0xcfa84e,1,.28),paint=MT(0x2a6bd6,.6,.35),tubeM=MT(0x2b2e35,.6,.3),dark=MT(0x16171a,.1,.8);
+  const glass=MT(0xaab6c8,.5,.3,{transparent:true,opacity:.22,depthWrite:false});
+  const {P,mk}=partMaker();let g;
+  g=mk(1,[-34,0,0],[2,15.8,0]);
+  g.add(latheX([[3,0],[14,0],[14,4],[9.5,4],[9.5,2.6],[3,2.6],[3,0]],iron,96));
+  const rgR=new THREE.Mesh(new THREE.TorusGeometry(14.2,.7,8,120),steel);rgR.rotation.y=Math.PI/2;rgR.position.x=2;g.add(rgR);
+  for(let i=0;i<6;i++){const a=i/6*Math.PI*2;const b=cylX(.6,.6,.9,bright,6);b.position.set(.4,Math.cos(a)*11.6,Math.sin(a)*11.6);g.add(b)}
+  g=mk(2,[-24,0,0],[7,13.6,0]);
+  g.add(latheX([[2.2,6.2],[12.4,6.2],[12.4,7.0],[2.2,7.0],[2.2,6.2]],steel,96));
+  g.add(latheX([[8,5.9],[12.4,5.9],[12.4,6.2],[8,6.2],[8,5.9]],fric,96));
+  g.add(latheX([[8,7.0],[12.4,7.0],[12.4,7.3],[8,7.3],[8,7.0]],fric,96));
+  g.add(latheX([[1.0,5.6],[2.6,5.6],[2.6,9.4],[1.0,9.4],[1.0,5.6]],steel));
+  for(let i=0;i<6;i++){const a=i/6*Math.PI*2;const s=cylX(.6,.6,1.6,brass,12);s.position.set(6.6,Math.cos(a)*5.2,Math.sin(a)*5.2);g.add(s)}
+  g=mk(3,[-14,0,0],[11,14.8,0]);
+  g.add(latheX([[6.6,8.0],[12.5,8.0],[12.5,9.6],[6.6,9.6],[6.6,8.0]],iron,96));
+  g.add(latheX([[12.7,7.8],[13.4,7.8],[13.4,11.6],[11.2,14.2],[5,14.2],[5,13.4],[10.6,13.4],[12.7,11.2],[12.7,7.8]],paint,96));
+  g.add(latheX([[4.6,12.4],[5.4,12.4],[11,10.4],[10.4,10.4],[4.6,12.4]],bright,72));
+  for(let i=0;i<6;i++){const a=i/6*Math.PI*2+.26;const b=cylX(.7,.7,1,steel,6);b.position.set(7.8,Math.cos(a)*13,Math.sin(a)*13);g.add(b)}
+  g=mk(4,[-6,0,0],[17.5,6.4,0]);
+  g.add(latheX([[2.4,15],[3.0,15],[3.0,20],[2.4,20],[2.4,15]],steel));
+  g.add(latheX([[3.0,16],[5.4,16],[5.4,18.6],[3.0,18.6],[3.0,16]],bright));
+  g.add(tube([[17.4,-6.5,3.5],[17.4,-3,6],[17.4,0,6.6],[17.4,3,6],[17.4,6.5,3.5]],.5,steel));
+  g.add(tube([[17.4,6.5,3.5],[17.4,9,5],[17.4,12,9]],.6,steel));
+  const pv=cylZ(.9,.9,3,steel,16);pv.position.set(17.4,12,9);g.add(pv);
+  g=mk(5,[0,0,0],[41,11,0]);
+  g.add(latheX([[12.4,14],[15.6,14],[15.6,16],[12.8,24],[11.4,24],[13.6,16],[12.4,14]],glass,72));
+  const bx=new THREE.BoxGeometry(34,19,19);const bm=new THREE.Mesh(bx,glass);bm.position.set(41,0,0);g.add(bm);
+  const ed=new THREE.LineSegments(new THREE.EdgesGeometry(bx),new THREE.LineBasicMaterial({color:0x9fb4d0,transparent:true,opacity:.7}));ed.position.set(41,0,0);g.add(ed);
+  const tl=cylX(6.8,6.8,5,iron,40);tl.position.set(60.5,0,0);g.add(tl);
+  for(let i=0;i<8;i++){const a=i/8*Math.PI*2;const b=cylX(.6,.6,.8,steel,6);b.position.set(15.9,Math.cos(a)*14.6,Math.sin(a)*14.6);g.add(b)}
+  g=mk(6,[0,0,0],[18,4,0]);
+  g.add(latheX([[0,5],[1.8,5],[1.8,25.5],[2.6,26],[2.6,30],[0,30]],steel));
+  const ig=gearMesh(4.5,20,2.6,bright);ig.position.set(27.8,0,0);g.add(ig);
+  g=mk(7,[7,0,0],[46,6.2,0]);
+  g.add(latheX([[0,31],[1.9,31],[1.9,60.6],[0,60.6]],steel));
+  g.add(latheX([[1.9,60.6],[5.2,60.6],[5.2,62.2],[1.9,62.2],[1.9,60.6]],steel));
+  for(let i=0;i<4;i++){const a=i/4*Math.PI*2+.4;const b=cylX(.5,.5,2.2,bright,6);b.position.set(62,Math.cos(a)*4,Math.sin(a)*4);g.add(b)}
+  [[34,5.2,23],[40,4.4,20],[46,3.6,16],[52,3.0,14]].forEach(q=>{const m=gearMesh(q[1],q[2],2.2,steel);m.position.set(q[0],0,0);g.add(m)});
+  [37,49].forEach(x=>{const s=cylX(3.4,3.4,2.2,brass,32);s.position.set(x,0,0);g.add(s)});
+  g=mk(8,[0,-9,0],[34,-4.4,0]);
+  const ls=cylX(1.5,1.5,36,steel,24);ls.position.set(42,-8.4,0);g.add(ls);
+  [[27.8,3.9,17],[34,3.2,14],[40,4.0,18],[46,4.8,22],[52,5.4,24]].forEach(q=>{const m=gearMesh(q[1],q[2],2.2,q[0]===27.8?bright:steel);m.position.set(q[0],-8.4,0);g.add(m)});
+  g=mk(9,[28,0,0],[82,4.8,0]);
+  g.add(latheX([[1.4,68],[3.2,68],[3.2,72],[1.4,72],[1.4,68]],steel));
+  g.add(latheX([[3.0,72],[3.7,72],[3.7,92],[3.0,92],[3.0,72]],tubeM));
+  g.add(latheX([[1.6,92],[3.4,92],[3.4,94.4],[1.6,94.4],[1.6,92]],steel));
+  const bw=boxM(1.2,.6,2,steel);bw.position.set(84,3.8,0);g.add(bw);
+  g=mk(10,[14,0,0],[65,5.6,0]);
+  const sx=cylY(.9,.9,5.6,steel,16);sx.position.set(65,0,0);g.add(sx);
+  const sz=cylZ(.9,.9,5.6,steel,16);sz.position.set(65,0,0);g.add(sz);
+  [[0,1],[0,-1]].forEach(a=>{const c=cylY(1.5,1.5,1.4,bright,20);c.position.set(65,a[1]*2.9,0);g.add(c)});
+  [[0,1],[0,-1]].forEach(a=>{const c=cylZ(1.5,1.5,1.4,bright,20);c.position.set(65,0,a[1]*2.9);g.add(c)});
+  [3.6,-3.6].forEach(y=>{const p=boxM(3,1.2,5.6,iron);p.position.set(63.4,y,0);g.add(p)});
+  [3.6,-3.6].forEach(z=>{const p=boxM(3,5.6,1.2,iron);p.position.set(66.8,0,z);g.add(p)});
+  return{parts:P,cam:V3(52,40,118),target:V3(46,0,0),floor:-18};
+}
+
+/* ----- Steering linkage and front axle (truck) ----- */
+function buildSteer3D(){
+  const bright=MT(0xe8edf4,1,.15),steel=MT(0xc5ccd6,.95,.25),forged=MT(0x3a4049,.7,.45),spr=MT(0x2c3037,.6,.4),rub=MT(0x111214,.1,.9),brass=MT(0xcfa84e,1,.28),blue=MT(0x2f6fdd,.5,.3),cast=MT(0x6f7782,.8,.5);
+  const {P,mk,sub}=partMaker();let g;
+  g=mk(1,[0,0,0],[0,7,0]);
+  [2.4,-2.4].forEach(y=>{const f=boxM(52,1.2,5.4,forged);f.position.y=y;g.add(f)});
+  const web=boxM(52,3.6,1.2,forged);g.add(web);
+  [-26,26].forEach(x=>{const b=cylY(3.4,3.4,8.6,forged,32);b.position.set(x,0,0);g.add(b)});
+  [-14,14].forEach(x=>{const p=boxM(9,1.2,7.5,forged);p.position.set(x,3.6,0);g.add(p)});
+  g=mk(2,[0,18,0],[26,10,0]);
+  [-1,1].forEach(s=>{const c=sub(2,[0,0,0],[s*26,0,0]);
+    const pin=cylY(1.5,1.5,13,bright,24);c.add(pin);
+    const cap=cylY(2.4,2.4,.8,steel,6);cap.position.y=6.9;c.add(cap);
+    const lk=cylX(.6,.6,4,steel,12);lk.position.y=-5.4;c.add(lk)});
+  g=mk(3,[0,0,0],[-29,8,0]);
+  [-1,1].forEach(s=>{const c=sub(3,[s*13,0,0],[s*26,0,0]);
+    [5.9,-5.9].forEach(y=>{const a=boxM(7,2,6.4,forged);a.position.set(s*.4,y,0);c.add(a);const bu=cylY(1.9,1.9,2.6,brass,24);bu.position.set(0,y,0);c.add(bu)});
+    const post=boxM(2.4,13.8,6.4,forged);post.position.set(s*3.8,0,0);c.add(post);
+    const sp=cylX(2.5,1.7,10,steel,28);sp.position.set(s*9.6,0,0);c.add(sp);
+    const hub=cylX(5.6,5.6,5,cast,40);hub.position.set(s*10.2,0,0);c.add(hub);
+    const fl=cylX(6.6,6.6,.8,cast,40);fl.position.set(s*13,0,0);c.add(fl);
+    const ta=boxM(1.6,1.6,9.6,forged);ta.position.set(s*3,-4,-6.8);c.add(ta);
+    if(s<0){const sa=boxM(1.6,1.6,9.6,forged);sa.position.set(s*3,3.5,-6.8);c.add(sa)}});
+  g=mk(4,[0,-4,-12],[0,-2.5,-11]);
+  g.add(cylX(1.1,1.1,44,steel,24)).position.set(0,-4,-11);
+  [-1,1].forEach(s=>{const sl=cylX(1.6,1.6,6,forged,24);sl.position.set(s*22,-4,-11);g.add(sl);const cb=cylY(.5,.5,2.2,steel,8);cb.position.set(s*21,-2.3,-11);g.add(cb)});
+  g=mk(5,[0,-4,-12],[0,-4,-11]);
+  [-1,1].forEach(s=>{const c=sub(5,[s*12,-3,0],[s*29,-4,-11]);
+    const ball=new THREE.Mesh(new THREE.SphereGeometry(1.6,24,16),steel);c.add(ball);
+    const st=cylY(.7,.7,3.4,steel,12);st.position.y=-2;c.add(st);
+    const bt=latheY([[.9,0],[1.7,-.8],[1.5,-2.6],[.8,-2.8]],rub,24);bt.position.y=1.4;c.add(bt);
+    const sk=cylX(1.5,1.5,3,forged,24);sk.position.x=-s*3;c.add(sk)});
+  g=mk(6,[0,-8,16],[-26.5,3,-16]);
+  g.add(tube([[-24,3,-21.6],[-27,3.2,-16],[-29,3.5,-11]],.9,steel));
+  [[-24,3,-21.6],[-29,3.5,-11]].forEach(p=>{const s=new THREE.Mesh(new THREE.SphereGeometry(1.5,20,14),bright);s.position.set(...p);g.add(s)});
+  const sl2=cylX(1.5,1.5,5,blue,24);sl2.rotation.y=.45;sl2.position.set(-26,3.1,-17.5);g.add(sl2);
+  g=mk(7,[-10,0,-10],[-24,5.4,-26]);
+  const pa=boxM(2.2,1.6,9,forged);pa.position.set(-24,3,-26);g.add(pa);
+  const phb=cylY(2.2,2.2,2.2,forged,24);phb.position.set(-24,3,-30);g.add(phb);
+  const pbs=new THREE.Mesh(new THREE.SphereGeometry(1.2,16,12),steel);pbs.position.set(-24,3,-21.6);g.add(pbs);
+  g=mk(8,[-10,8,-10],[-24,17.8,-30]);
+  const sbx=boxM(9,9,9,blue);sbx.position.set(-24,12,-30);g.add(sbx);
+  const ssh=cylY(1.6,1.6,10,bright,24);ssh.position.set(-24,5,-30);g.add(ssh);
+  const sad=cylY(1.2,1.2,2,steel,6);sad.position.set(-24,16.9,-30);g.add(sad);
+  g.add(tube([[-24,16.5,-30],[-30,24,-34],[-38,32,-38]],1,steel));
+  const sw=new THREE.Mesh(new THREE.TorusGeometry(5,.7,12,48),rub);sw.rotation.x=-1.1;sw.position.set(-38,32,-38);g.add(sw);
+  g=mk(9,[0,18,0],[14,15.2,0]);
+  [-1,1].forEach(s=>{const c=sub(9,[0,0,0],[s*14,0,0]);
+    [64,56,48,40,32,24].forEach((L,i)=>{const pts=[];for(let k=0;k<=8;k++){const z=-L/2+L*k/8;pts.push([0,4.6+i*.95+2.6*(1-(z/32)*(z/32)),z])}
+      const m=tube(pts,.5,spr);m.scale.x=5.5;c.add(m)});
+    [-32,32].forEach(z=>{const e=new THREE.Mesh(new THREE.TorusGeometry(1.5,.45,10,24),spr);e.rotation.y=Math.PI/2;e.position.set(0,4.6,z);c.add(e)});
+    [-2.6,2.6].forEach(z=>c.add(tube([[-3.4,12.8,z],[-3.4,-4.6,z],[3.4,-4.6,z],[3.4,12.8,z]],.45,steel)))});
+  g=mk(10,[0,14,-6],[20,19,-9]);
+  [-1,1].forEach(s=>{const c=sub(10,[s*6,12,-6],[s*20,9,-9]);c.rotation.x=.18;
+    const bd=cylY(1.9,1.9,13,blue,32);bd.position.y=-1;c.add(bd);
+    const rd=cylY(.8,.8,9,bright,16);rd.position.y=9;c.add(rd);
+    [-7.5,13.8].forEach(y=>{const e=new THREE.Mesh(new THREE.TorusGeometry(1.4,.5,10,24),steel);e.position.y=y;c.add(e)});
+    const dc=cylY(2.3,2.3,1,steel,32);dc.position.y=4;c.add(dc)});
+  return{parts:P,cam:V3(52,46,104),target:V3(0,4,-8),floor:-16};
+}
 DIAGRAMS[0].build3d=buildFuel3D;DIAGRAMS[1].build3d=buildHub3D;
+const noSvg=()=>'<text x="420" y="260" text-anchor="middle" fill="currentColor" font-size="20">The 3D view needs an internet connection.</text>';
+const FITS={
+fuel:["Diesel engines with an inline injection pump (Bosch type, one plunger per cylinder).","Typical for: Hino, Isuzu, Nissan UD and Mitsubishi Fuso trucks, and Perkins, Ford and Massey Ferguson tractors. Newer common-rail engines use a different pump and injectors."],
+hub:["Heavy-truck wheel ends with tapered roller bearings and a brake drum.","Typical for: Hino, Isuzu, Nissan UD and Mitsubishi Fuso trucks. Tractors and other trailers use different hubs."],
+hyd:["Hydraulic circuits with a gear pump, control valve and double-acting cylinder.","Typical for: tractors with a loader or implement lift (Massey Ferguson, New Holland, Ford, Kubota, John Deere, Yanmar), and truck tipper or crane hydraulics."],
+gear:["Manual drive line: dry clutch, synchromesh gearbox and propeller shaft.","Typical for: manual Hino, Isuzu, Nissan UD and Mitsubishi Fuso trucks. Tractors have a similar clutch but a different gearbox and no propeller shaft."],
+steer:["Solid front beam axle with a recirculating-ball steering box, drag link and tie rod.","Typical for: Hino, Isuzu, Nissan UD, Mitsubishi Fuso and Mercedes-Benz trucks. Cars and vehicles with independent front suspension are different."]};
+const fitsCache={};
+function brandCounts(d){
+  if(fitsCache[d.id])return fitsCache[d.id];
+  const qs=[...new Set(d.parts.flatMap(p=>p[4]))].map(q=>norm(q).split(" ").filter(Boolean));
+  const n={};let total=0;
+  for(const p of parts){const tg=tagsOf(p);if(!qs.some(t=>t.every(w=>p._h.includes(w))))continue;total++;tg.brands.forEach(b=>n[b]=(n[b]||0)+1)}
+  return fitsCache[d.id]={total,list:Object.entries(n).sort((a,b)=>b[1]-a[1]).slice(0,8)};
+}
+function renderFits(d){
+  const f=FITS[d.id],box=$("#dfits");
+  if(!f){box.style.display="none";return}
+  const bc=brandCounts(d);
+  box.style.display="block";
+  box.innerHTML=`<h4>Suitable for</h4><div style="font-weight:600;margin-bottom:4px">${esc(f[0])}</div><div class="mute" style="margin-bottom:8px">${esc(f[1])}</div>
+   <div class="mute">In your stock for this system: ${bc.total.toLocaleString()} parts. By brand (guessed from your shop codes):</div>
+   <div class="chips" style="flex-wrap:wrap;overflow:visible">${bc.list.map(x=>`<span class="chip" data-b="${esc(x[0])}">${esc(x[0])} · ${x[1].toLocaleString()}</span>`).join("")||'<span class="mute">No brand codes found yet.</span>'}</div>
+   <div class="mute" style="font-size:12px">A general model, not one exact machine. Always check the chassis or engine number against your parts book.</div>`;
+  box.querySelectorAll(".chip").forEach(c=>c.onclick=()=>{fType="All";fBrand=c.dataset.b;fGroup="";renderFilters();showTab("find");$("#q").value="";renderFind()});
+}
+DIAGRAMS.push(
+{id:"hyd",title:"Hydraulic system",svg:noSvg,build3d:buildHyd3D,parts:[
+[1,"Oil reservoir","Stores the oil, lets air and heat escape and lets dirt settle. It has a filler cap with a breather, a sight glass for the level and a drain plug.","Low or dirty oil, a blocked breather (the pump starves), water in the oil (milky colour).",["BREATHER","CAP","TANK"]],
+[2,"Return filter","Cleans the oil as it returns to the tank so metal and rubber particles do not keep circulating. Many have a bypass valve for cold starts.","A blocked element gives slow, noisy hydraulics. Changed late, it lets dirt wear the pump.",["H/FILTER","HYD FILTER","FILTER"]],
+[3,"Hydraulic pump","Driven by the engine. A gear pump uses two meshing gears to push oil out. Flow depends on size and rpm; pressure depends on the load.","Whining noise, weak lift, hot oil, worn gears or side plates, a leaking shaft seal.",["PUMP","HYD PUMP","GEAR PUMP"]],
+[4,"Hoses","Flexible, steel-reinforced hoses carry oil between pump, valve and cylinder. Each is rated for a working pressure in bar.","Bulges, cracks, leaks at the ends, rubbing on the frame. Always replace with the same pressure rating and length.",["HOSE","HYD HOSE"]],
+[5,"Control valve","Sends oil to one side of the cylinder or the other when you move the lever. It holds the spools and the pressure relief valve.","Sticking spool, internal leaks (the cylinder creeps down), relief valve set wrongly.",["VALVE","CONTROL VALVE","SPOOL"]],
+[6,"Cylinder barrel","The tube the piston moves inside. Oil on one side pushes the piston out, oil on the other side pulls it back. Shown see-through here.","Scored bore, bent barrel, leaking end cap or port threads.",["CYLINDER","BARREL"]],
+[7,"Piston rod","Hard-chromed steel rod that carries the force out of the cylinder to the loader arm or implement.","Scratches or rust pits cut the seal, bent rod, flaking chrome.",["ROD","PISTON ROD"]],
+[8,"Piston and seals","Divides the barrel into two chambers. Seal rings stop oil passing from one side to the other so the cylinder holds its load.","Worn seals: the cylinder drifts down, or is slow and weak.",["SEAL KIT","PISTON","O-RING"]],
+[9,"Gland, rod seal and wiper","Guides the rod, keeps oil in with the rod seal and scrapes dirt off with the wiper. Change the wiper and seal together.","Oil running down the rod, a torn wiper, dirt inside the cylinder.",["O/SEAL","WIPER","DUST SEAL","ROD SEAL"]],
+[10,"Fittings and couplers","The ends that join hoses to ports. Quick couplers let you disconnect implements. Check the thread type: BSP, NPT, JIC or metric.","Wrong thread, damaged sealing face, a leaking O-ring or washer.",["FIT/HYD","FITTING","COUPLER","ADAPTOR"]]
+]},
+{id:"gear",title:"Gearbox, clutch & propeller shaft",svg:noSvg,build3d:buildGear3D,parts:[
+[1,"Flywheel","A heavy disc bolted to the engine crankshaft. It smooths the engine pulses, carries the starter ring gear and gives the clutch disc a friction face.","Heat cracks, a glazed or scored face, worn ring gear teeth (the starter grinds).",["FLYWHEEL","RING GEAR"]],
+[2,"Clutch disc","The friction plate between the flywheel and pressure plate. When the pedal is up it is clamped and drives the gearbox. Springs in the hub soften the shock.","Worn lining (the clutch slips), broken damper springs (rattle), oil on the lining.",["CLUTCH DISC","CLUTCH","DISC"]],
+[3,"Pressure plate and cover","Clamps the disc against the flywheel using a diaphragm spring. Pressing the pedal releases the clamp.","Weak or cracked spring, scored plate, uneven release (judder).",["PRESSURE PLATE","CLUTCH COVER"]],
+[4,"Release bearing and fork","The fork pushes the release bearing against the diaphragm spring when you press the pedal. The bearing spins with the spring.","Noise when the pedal is pressed, a worn fork, a seized bearing.",["RELEASE BEARING","FORK","THROW OUT"]],
+[5,"Gearbox casing","The housing that holds the shafts and gear oil in alignment. The bell housing joins it to the engine. Shown see-through.","Oil leaks at gaskets and seals, cracks, worn bearing bores.",["GASKET","COVER","HOUSING"]],
+[6,"Input shaft","Receives power from the clutch disc and drives the layshaft through the input gear. The disc hub slides on its splines.","Worn splines, damaged bearing, a leaking front seal.",["INPUT SHAFT","SHAFT","O/SEAL"]],
+[7,"Main shaft and gears","Carries the gears that you choose with the shift lever. Synchroniser sleeves match speeds so the gears mesh smoothly. The flange at the end joins the propeller shaft.","Chipped teeth, worn synchronisers (grinding when shifting), jumping out of gear.",["GEAR","SYNCHRO","MAIN SHAFT"]],
+[8,"Layshaft","The countershaft below, always turning with the input shaft. Its gears are always in mesh with the main shaft gears.","Worn bearings (whine), damaged gears, loose end float.",["LAYSHAFT","COUNTER SHAFT","GEAR","BRG"]],
+[9,"Propeller shaft","A tube that carries power from the gearbox to the rear axle. The splined slip yoke lets its length change as the axle moves.","Worn splines, an out-of-balance or bent tube, lack of grease.",["PROPELLER","PROP SHAFT","SLIP YOKE","YOKE"]],
+[10,"Universal joint","A cross (spider) with four bearing caps that lets the shaft turn even when the angle changes. Trucks have one at each end.","Clunk when taking up drive, vibration at speed, worn caps. Grease where fitted.",["U/JOINT","UNIVERSAL","CROSS","SPIDER"]]
+]},
+{id:"steer",title:"Steering & front axle",svg:noSvg,build3d:buildSteer3D,parts:[
+[1,"Front axle beam","A forged I-beam that carries the weight of the front of the truck. The ends are bored for the king pins; the springs sit on the pads.","Bends after accidents, worn king pin bores, cracks near the spring pads.",["AXLE","FRONT AXLE","BEAM"]],
+[2,"King pins","The vertical pins the steering knuckles pivot on. They run in bushings and are locked with a taper bolt.","Worn pins and bushings: loose steering, uneven tyre wear, vibration. Replace the set together.",["KING PIN","KINGPIN","KING PIN KIT"]],
+[3,"Steering knuckles","Hold the wheel hub on the spindle and pivot on the king pin. Arms on the knuckle connect to the tie rod and drag link.","Worn bushings, cracked arms, a damaged spindle or bearing seat.",["KNUCKLE","BUSH","SPINDLE"]],
+[4,"Tie rod","Joins the two knuckles so the wheels turn together. Its length sets the toe-in, so adjust and recheck the alignment after fitting.","Bent rod, worn threads, wrong length (tyre wear).",["TIE ROD","TRACK ROD"]],
+[5,"Tie rod ends","Ball joints at each end of the tie rod. A rubber boot keeps the grease in. Left and right can have opposite threads.","Play in the ball, torn boot, clunking over bumps. Always replace in pairs.",["TIE ROD END","ROD END","B/JOINT","BALL JOINT"]],
+[6,"Drag link","The rod from the pitman arm to the steering arm on the left knuckle. It moves the knuckle when the steering box turns.","Worn ball sockets, bent link, loose steering (play at the wheel).",["DRAG LINK","DRAG ROD"]],
+[7,"Pitman arm","Bolts to the output shaft of the steering box on splines and swings the drag link forwards and backwards.","Loose or worn splines, cracks, a worn ball stud.",["PITMAN","PITMAN ARM","STEERING ARM"]],
+[8,"Steering box","Turns the movement of the steering wheel into the swing of the pitman arm. On trucks it is usually a recirculating ball box with power assist.","Oil leaks, play at the wheel, heavy or noisy steering.",["STEERING BOX","STEERING GEAR","SECTOR","O/SEAL"]],
+[9,"Leaf springs","Stacks of curved steel leaves that carry the load and absorb bumps. U-bolts clamp them to the axle.","Cracked or broken leaves, sagging, loose U-bolts, worn bushes in the eyes.",["SPRING","LEAF SPRING","U-BOLT","BUSH"]],
+[10,"Shock absorbers","Dampers that stop the springs bouncing. They have a rubber bush at each end.","Oil leaks, a bouncing truck, worn bushes.",["SHOCK","SHOCK ABSORBER","DAMPER"]]
+]});
 
 /* ----- your own diagrams: a real exploded-view image + numbered hotspots linked to stock ----- */
 let userD=[],uCur=-1,uEdit=false,uZoom=100,uSpot=null;
@@ -960,9 +1216,9 @@ $("#d_import").onchange=async e=>{
 function renderDiagram(){
   $("#dtabs").innerHTML=DIAGRAMS.map((x,i)=>`<button class="${uCur<0&&i===dCur?"on":""}" data-i="${i}">${esc(x.title)}</button>`).join("")+userD.map((x,i)=>`<button class="${uCur===i?"on":""}" data-u="${i}">${esc(x.title)}</button>`).join("");
   $("#dtabs").querySelectorAll("button").forEach(b=>b.onclick=()=>{if(b.dataset.u!==undefined){uCur=+b.dataset.u;uEdit=false;uSpot=null;uZoom=100;renderDiagram();$("#dinfo").innerHTML=""}else{uCur=-1;dCur=+b.dataset.i;dSel=1;renderDiagram()}});
-  if(uCur>=0){renderUser();return}
+  if(uCur>=0){$("#dfits").style.display="none";renderUser();return}
   $("#dimgbox").style.display="none";$("#dsvgbox").style.display="block";
-  const d=DIAGRAMS[dCur];
+  const d=DIAGRAMS[dCur];renderFits(d);
   const ok3=show3D(d);
   $("#d3box").style.display=ok3?"block":"none";$("#dsvg").style.display=ok3?"none":"block";$("#svgnote").style.display=ok3?"none":"block";
   if(!ok3)$("#dsvg").innerHTML=d.svg();
