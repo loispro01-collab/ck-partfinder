@@ -87,6 +87,13 @@ details.sys p{color:var(--mute);margin:8px 0 0}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 @media(max-width:560px){.grid2{grid-template-columns:1fr}.term{flex-direction:column;gap:2px}}
 @media(max-width:520px){nav.top .logo{display:none}}
+.stage{position:relative;height:min(64vh,540px);min-height:320px;border-radius:18px;overflow:hidden;background:radial-gradient(120% 90% at 50% 0%,#3a404c 0%,#14171c 55%,#050607 100%);touch-action:none}
+.stage canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+#d3labels{position:absolute;inset:0;pointer-events:none}
+.c3{position:absolute;transform:translate(-50%,-50%);min-width:26px;height:26px;padding:0 6px;border-radius:13px;background:#fff;color:#111;font:700 13px/26px -apple-system,Segoe UI,sans-serif;text-align:center;cursor:pointer;pointer-events:auto;box-shadow:0 2px 10px rgba(0,0,0,.55)}
+.c3.sel{background:#0a84ff;color:#fff;box-shadow:0 0 0 4px rgba(10,132,255,.45),0 2px 10px rgba(0,0,0,.55)}
+.d3bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:10px 0 4px}
+.d3bar input[type=range]{flex:1;min-width:120px;accent-color:var(--blue)}
 .dimgwrap{overflow:auto;max-height:75vh;border-radius:14px;background:#fff;border:1px solid var(--line);touch-action:pan-x pan-y}
 .dimgin{position:relative}
 .dimgin img{width:100%;display:block;user-select:none;-webkit-user-drag:none}
@@ -161,8 +168,14 @@ details.sys p{color:var(--mute);margin:8px 0 0}
   <p class="mute">Tap a number (or a part) to see what it does, what goes wrong, and what you have in stock.</p>
   <div class="seg" id="dtabs" style="margin:8px 0 12px"></div>
   <div class="box" id="dimgbox" style="display:none"></div>
-  <div class="box" id="dsvgbox"><svg id="dsvg" viewBox="0 0 840 520" role="img" aria-label="Parts diagram"></svg>
-    <div class="mute" style="font-size:12px">Simplified learning drawing, not a manufacturer's exact drawing. Real parts differ by engine and model.</div></div>
+  <div class="box" id="dsvgbox">
+    <div id="d3box" style="display:none">
+      <div class="stage" id="d3wrap"><canvas id="d3canvas"></canvas><div id="d3labels"></div></div>
+      <div class="d3bar"><span class="mute">Explode</span><input type="range" id="d3t" min="0" max="100" value="100"><button class="btn sec" id="d3spin">⟳ Spin</button><button class="btn sec" id="d3reset">Reset view</button></div>
+      <div class="mute" style="font-size:12px">Drag to rotate · pinch or scroll to zoom · tap a number or part. Illustrative 3D model; real parts differ by engine and model.</div>
+    </div>
+    <svg id="dsvg" viewBox="0 0 840 520" role="img" aria-label="Parts diagram"></svg>
+    <div class="mute" id="svgnote" style="font-size:12px">Simplified learning drawing, not a manufacturer's exact drawing. Real parts differ by engine and model.</div></div>
   <div class="box"><h4>Your own diagrams</h4>
     <p class="mute">Take a photo or screenshot of an exploded view from your parts book or supplier catalogue, then tap the numbers on it and link each one to a stock item. Tapping a number then shows the part, its stock and its shelf. Pictures stay on this phone only.</p>
     <div class="btns"><label class="btn" style="cursor:pointer">＋ Add a diagram picture<input type="file" id="dfile" accept="image/*" hidden></label>
@@ -214,6 +227,8 @@ details.sys p{color:var(--mute);margin:8px 0 0}
 <div class="sheet" id="sheet"><div class="panel" id="panel"></div></div>
 <div class="toast" id="toast"></div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 <script>
 /* ---------- reference data ---------- */
 const SAMPLE=[
@@ -679,6 +694,191 @@ const DIAGRAMS=[
 ]}];
 let dCur=0,dSel=1;
 function countFor(q){const tk=norm(q).split(" ").filter(Boolean);let n=0;for(const p of parts){tagsOf(p);if(tk.every(t=>p._h.includes(t)))n++}return n}
+/* ---------- 3D models (three.js): rotate, zoom, explode ---------- */
+let G3=null;
+const V3=(a,b,c)=>new THREE.Vector3(a,b,c);
+const MT=(c,m,r,x)=>new THREE.MeshStandardMaterial(Object.assign({color:c,metalness:m,roughness:r,side:THREE.DoubleSide},x||{}));
+const latheX=(pts,mat,seg)=>{const g=new THREE.LatheGeometry(pts.map(p=>new THREE.Vector2(p[0],p[1])),seg||80);g.rotateZ(-Math.PI/2);return new THREE.Mesh(g,mat)};
+const latheY=(pts,mat,seg)=>new THREE.Mesh(new THREE.LatheGeometry(pts.map(p=>new THREE.Vector2(p[0],p[1])),seg||40),mat);
+const cylX=(r1,r2,h,mat,seg)=>{const g=new THREE.CylinderGeometry(r1,r2,h,seg||32);g.rotateZ(-Math.PI/2);return new THREE.Mesh(g,mat)};
+const cylY=(r1,r2,h,mat,seg)=>new THREE.Mesh(new THREE.CylinderGeometry(r1,r2,h,seg||32),mat);
+const boxM=(w,h,d,mat)=>new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mat);
+const tube=(pts,r,mat)=>new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts.map(p=>V3(...p)),false,"catmullrom",.25),Math.max(30,pts.length*18),r,14,false),mat);
+function rollers(g,n,rad,r1,r2,len,xc,mat){for(let i=0;i<n;i++){const a=i/n*Math.PI*2,m=cylX(r1,r2,len,mat,16);m.position.set(xc,Math.cos(a)*rad,Math.sin(a)*rad);g.add(m)}}
+function gearMesh(R,teeth,depth,mat){const s=new THREE.Shape(),n=teeth*4;for(let i=0;i<n;i++){const a=i/n*Math.PI*2,k=i%4,r=(k===1||k===2)?R:R*.87,x=Math.cos(a)*r,y=Math.sin(a)*r;if(i)s.lineTo(x,y);else s.moveTo(x,y)}s.closePath();const h=new THREE.Path();h.absarc(0,0,R*.3,0,Math.PI*2,true);s.holes.push(h);const g=new THREE.ExtrudeGeometry(s,{depth,bevelEnabled:true,bevelSize:.1,bevelThickness:.1,bevelSegments:1,curveSegments:24});g.translate(0,0,-depth/2);g.rotateY(Math.PI/2);return new THREE.Mesh(g,mat)}
+function hexNut(R,hole,depth,mat){const s=new THREE.Shape();for(let i=0;i<6;i++){const a=i/6*Math.PI*2+Math.PI/6,x=Math.cos(a)*R,y=Math.sin(a)*R;if(i)s.lineTo(x,y);else s.moveTo(x,y)}s.closePath();const h=new THREE.Path();h.absarc(0,0,hole,0,Math.PI*2,true);s.holes.push(h);const g=new THREE.ExtrudeGeometry(s,{depth,bevelEnabled:true,bevelSize:.12,bevelThickness:.12,bevelSegments:2,curveSegments:24});g.rotateY(Math.PI/2);return new THREE.Mesh(g,mat)}
+function partMaker(){const P={};return{P,mk:(n,dir,anc)=>{const g=new THREE.Group();g.userData.n=n;P[n]={g,dir:V3(...dir),anchor:V3(...anc)};return g}}}
+
+function buildHub3D(){
+  const steel=MT(0xc5ccd6,.95,.25),bright=MT(0xe8edf4,1,.15),iron=MT(0x6b7078,.8,.45),dark=MT(0x16171a,.1,.8);
+  const {P,mk}=partMaker();let g;
+  g=mk(1,[0,0,0],[-6,5.6,0]);
+  g.add(latheX([[0,-9],[4.2,-9],[4.2,0],[3.6,.3],[3.6,2],[3.3,2.2],[3.3,9],[2.8,9.3],[2.8,13],[2.2,13.2],[2.2,19],[0,19]],steel));
+  for(let i=0;i<9;i++){const t=new THREE.Mesh(new THREE.TorusGeometry(2.22,.1,8,40),steel);t.rotation.y=Math.PI/2;t.position.x=13.6+i*.6;g.add(t)}
+  g=mk(2,[-17,0,0],[2.1,6.6,0]);
+  g.add(latheX([[3.5,1.4],[5.5,1.4],[5.5,2.7],[3.9,2.7],[3.6,2.25],[3.5,2.0]],dark));
+  g.add(latheX([[5.1,1.35],[5.7,1.35],[5.7,2.75],[5.1,2.75]],steel));
+  g=mk(3,[-10,0,0],[4.25,7.6,0]);
+  g.add(latheX([[5.3,2.9],[6.6,2.9],[6.6,5.6],[5.3,5.6]],bright));
+  g.add(latheX([[3.4,2.9],[4.4,3.3],[4.4,5.3],[3.4,5.6]],bright));
+  rollers(g,16,4.85,.4,.46,2.3,4.25,steel);
+  g=mk(4,[0,0,0],[10.5,16,0]);
+  g.add(latheX([[6.6,1.2],[8.8,1.2],[8.8,4.4],[15.2,4.4],[15.2,7.0],[10.2,7.0],[10.2,12.8],[8.8,13.4],[5.0,13.4],[5.0,8.0],[6.6,8.0],[6.6,1.2]],iron));
+  g=mk(6,[12,0,0],[7,13.4,0]);
+  for(let i=0;i<10;i++){const a=i/10*Math.PI*2,y=Math.cos(a)*12.2,z=Math.sin(a)*12.2;
+    const sh=cylX(.55,.55,9,bright,12);sh.position.set(6.5,y,z);g.add(sh);
+    const hd=cylX(.95,.95,.5,steel,6);hd.position.set(2.25,y,z);g.add(hd)}
+  g=mk(5,[-27,0,0],[-4,22.4,0]);
+  g.add(latheX([[9.2,2.4],[9.2,4.4],[20.5,4.4],[20.5,-9],[18.8,-9],[18.8,2.4],[9.2,2.4]],iron,96));
+  for(let i=0;i<4;i++){const t=new THREE.Mesh(new THREE.TorusGeometry(20.5,.35,10,96),iron);t.rotation.y=Math.PI/2;t.position.x=-7+i*3;g.add(t)}
+  g=mk(7,[11,0,0],[11.5,6.2,0]);
+  g.add(latheX([[4.0,10.4],[5.0,10.4],[5.0,12.6],[4.0,12.6]],bright));
+  g.add(latheX([[2.9,10.4],[3.4,10.7],[3.4,12.4],[2.9,12.6]],bright));
+  rollers(g,14,3.7,.28,.31,1.9,11.5,steel);
+  g=mk(8,[19,0,0],[13.7,5.8,0]);
+  g.add(latheX([[2.3,13.5],[4.6,13.5],[4.6,13.9],[2.3,13.9]],steel));
+  const tab=boxM(1.6,.4,1.0,steel);tab.position.set(14.7,4.7,0);g.add(tab);
+  g=mk(9,[26,0,0],[15,5.4,0]);
+  const nut=hexNut(3.9,2.25,2.2,bright);nut.position.x=13.95;g.add(nut);
+  return{parts:P,cam:V3(34,30,92),target:V3(6,0,0),floor:-22};
+}
+
+function buildFuel3D(){
+  const alu=MT(0xaab3bf,.85,.4),cast=MT(0x6f7782,.8,.5),steel=MT(0xdfe5ee,1,.2),brass=MT(0xcfa84e,1,.28),paint=MT(0x2f6fdd,.5,.3),head=MT(0xc7ced8,.9,.3),tankm=MT(0x3b414a,.6,.45),hose=MT(0x15171a,.1,.8),dark=MT(0x23262b,.5,.5);
+  const glass=MT(0x9fd4ff,0,.1,{transparent:true,opacity:.38}),water=MT(0x3f86d9,0,.2,{transparent:true,opacity:.75});
+  const {P,mk}=partMaker();let g;
+  const X=i=>-8+3.2*i;
+  g=mk(1,[-9,-3,2],[-40,-0.4,6]);
+  const tank=boxM(16,8,10,tankm);tank.position.set(-40,-6,6);g.add(tank);
+  [-45,-35].forEach(x=>{const s=boxM(.7,8.5,10.5,steel);s.position.set(x,-6,6);g.add(s)});
+  const cap=cylY(1.5,1.5,1,dark);cap.position.set(-42,-1.5,6);g.add(cap);
+  const capk=cylY(1.1,1.1,.6,steel,6);capk.position.set(-42,-.8,6);g.add(capk);
+  const can=(x,z,bowl)=>{const c=new THREE.Group();
+    const body=cylY(2.6,2.6,8,paint,40);body.position.y=-3.5;c.add(body);
+    const hd=cylY(3.0,3.0,1.6,head,40);hd.position.y=1.3;c.add(hd);
+    const tp=cylY(1.2,1.2,.9,steel,6);tp.position.y=2.5;c.add(tp);
+    [-6.5,-1.5].forEach(y=>{const r=new THREE.Mesh(new THREE.TorusGeometry(2.62,.14,8,40),steel);r.rotation.x=Math.PI/2;r.position.y=y;c.add(r)});
+    [-1,1].forEach(s=>{const p=cylX(.6,.6,1.4,steel,16);p.position.set(s*3.3,1.3,0);c.add(p)});
+    if(bowl){const b=cylY(2.5,2.5,3.2,glass,32);b.position.y=-9.3;c.add(b);const w=cylY(2.4,2.4,1.5,water,32);w.position.y=-10.1;c.add(w);const dv=cylY(.7,.7,1,steel,12);dv.position.y=-11.4;c.add(dv)}
+    else{const bt=cylY(2.4,2.4,.8,head,32);bt.position.y=-7.8;c.add(bt)}
+    c.position.set(x,0,z);return c};
+  g=mk(2,[-6,0,6],[-26,3.8,13]);g.add(can(-26,13,true));
+  g=mk(4,[7,0,6],[8,3.8,13]);g.add(can(8,13,false));
+  g=mk(3,[0,0,9],[-4,3.9,7.8]);
+  const lp=new THREE.Group();lp.position.set(-4,-1.5,7.8);
+  const lb=boxM(6,4.2,4.6,cast);lp.add(lb);
+  const dc=cylY(2.3,2.3,1.5,alu,32);dc.position.y=2.6;lp.add(dc);
+  const pk=cylY(.8,.8,2,dark,16);pk.position.y=4.3;lp.add(pk);
+  const pb=new THREE.Mesh(new THREE.SphereGeometry(1.1,20,14),dark);pb.position.y=5.5;lp.add(pb);
+  const lv=cylX(.35,.35,5,steel,10);lv.position.set(0,-1,3);lp.add(lv);
+  g.add(lp);
+  g=mk(5,[0,0,0],[6,6.6,3.4]);
+  const cam=boxM(24,5,10,cast);cam.position.y=-2.5;g.add(cam);
+  const up=boxM(22,5,8.4,alu);up.position.y=2.5;g.add(up);
+  const tp2=boxM(22.6,.6,8.8,steel);tp2.position.y=5.3;g.add(tp2);
+  [-6,0,6].forEach(x=>{const pl=boxM(4.6,3,.4,steel);pl.position.set(x,-2.5,5.2);g.add(pl);[-1.8,1.8].forEach(dx=>[-1,1].forEach(dy=>{const b=cylZ(.28,.28,.4,steel,6);b.position.set(x+dx,-2.5+dy,5.5);g.add(b)}))});
+  const gv=cylX(4.4,4.4,6,alu,48);gv.position.set(14.8,.8,0);g.add(gv);
+  const gc=cylX(2.6,3,2.2,steel,40);gc.position.set(18.7,.8,0);g.add(gc);
+  const gl=cylY(.5,.5,4,steel,12);gl.position.set(15,5.2,0);g.add(gl);
+  const gal=cylX(1,1,19,brass,24);gal.position.set(0,6.1,3.2);g.add(gal);
+  const fl=cylX(4.6,4.6,.8,alu,40);fl.position.set(-12.4,.8,0);g.add(fl);
+  g=mk(6,[0,5,0],[X(0)-2,11.6,-1.2]);
+  for(let i=0;i<6;i++){const x=X(i);
+    const v=cylY(1.15,1.15,2.2,brass,24);v.position.set(x,6.7,-1.2);g.add(v);
+    const hx=cylY(1.35,1.35,.8,steel,6);hx.position.set(x,8.2,-1.2);g.add(hx);
+    g.add(tube([[x,8.6,-1.2],[x,11,-1.2],[x+1.2,13.5,-1.2],[x+1.2,16.2,-1.2]],.3,steel));
+    const f2=cylY(.55,.55,.8,steel,6);f2.position.set(x+1.2,15.8,-1.2);g.add(f2)}
+  g=mk(7,[0,10,0],[X(5)+4,19,-1.2]);
+  for(let i=0;i<6;i++){const x=X(i)+1.2;
+    const b=latheY([[0,13.2],[.35,13.2],[.5,14],[.9,15],[.95,16],[.95,22],[.6,22.4],[.6,23.2],[0,23.2]],brass,36);b.position.set(x,0,-1.2);g.add(b);
+    const nt=cylY(1.2,1.2,1.2,steel,6);nt.position.set(x,15.4,-1.2);g.add(nt);
+    const lk=cylX(.35,.35,1.6,steel,12);lk.position.set(x+.8,22,-1.2);g.add(lk);
+    const st=cylX(.35,.35,1.4,steel,12);st.position.set(x-.8,16.2,-1.2);g.add(st)}
+  g=mk(8,[0,15,0],[24,9,-2]);
+  for(let i=0;i<6;i++){const x=X(i)+1.2;g.add(tube([[x+1.5,22,-1.2],[x+2.2,23,-1.2],[x+2.2,25,-1.2]],.22,hose))}
+  g.add(tube([[X(0)+3.4,25,-1.2],[X(5)+3.4,25,-1.2],[22,25,-1.2],[24,18,-1.4],[24,-8,-3],[22,-13,2],[-28,-13,2],[-33.5,-4,3]],.3,hose));
+  g=mk(9,[-10,0,0],[-14,7.6,0]);
+  const gr=gearMesh(6.4,28,1.4,steel);gr.position.set(-14,.8,0);g.add(gr);
+  const gn=hexNut(1.5,.5,1.2,steel);gn.position.set(-15.4,.8,0);g.add(gn);
+  g=mk(10,[0,-6,8],[-13.5,5.4,10]);
+  g.add(tube([[-32,-4,9],[-31,0,12],[-29.2,1.3,13]],.45,hose));
+  g.add(tube([[-22.8,1.3,13],[-17,4,11],[-10,3,9],[-7.1,-.5,7.8]],.45,hose));
+  g.add(tube([[-.9,-.5,7.8],[2,3.5,10.5],[4.8,1.3,13]],.45,hose));
+  g.add(tube([[11.2,1.3,13],[13.5,3,9],[12,6,5],[9.4,5.9,3.2]],.45,hose));
+  g=mk(11,[0,-6,0],[11,-8,5]);
+  const bp=boxM(20,.8,10.4,steel);bp.position.y=-5.4;g.add(bp);
+  [-8,8].forEach(x=>{const lg=boxM(2,2.4,10.4,cast);lg.position.set(x,-6.8,0);g.add(lg);[-3,3].forEach(z=>{const bh=cylY(.7,.7,.5,steel,6);bh.position.set(x,-8.2,z);g.add(bh)})});
+  return{parts:P,cam:V3(32,36,78),target:V3(-8,3,3),floor:-15};
+}
+function cylZ(r1,r2,h,mat,seg){const g=new THREE.CylinderGeometry(r1,r2,h,seg||32);g.rotateX(Math.PI/2);return new THREE.Mesh(g,mat)}
+
+function makeEnv(renderer){
+  const c=document.createElement("canvas");c.width=1024;c.height=512;const x=c.getContext("2d");
+  const gr=x.createLinearGradient(0,0,0,512);gr.addColorStop(0,"#dfe6f2");gr.addColorStop(.48,"#6b7482");gr.addColorStop(.5,"#2a2e36");gr.addColorStop(1,"#0b0c0f");
+  x.fillStyle=gr;x.fillRect(0,0,1024,512);x.fillStyle="#fff";
+  [[90,70,170,64],[400,50,240,70],[740,80,180,60],[560,170,120,34],[220,190,110,30]].forEach(r=>x.fillRect(r[0],r[1],r[2],r[3]));
+  const t=new THREE.CanvasTexture(c);t.mapping=THREE.EquirectangularReflectionMapping;t.encoding=THREE.sRGBEncoding;
+  const pm=new THREE.PMREMGenerator(renderer),env=pm.fromEquirectangular(t).texture;t.dispose();pm.dispose();return env;
+}
+function init3D(){
+  const cv=$("#d3canvas"),wrap=$("#d3wrap");
+  const renderer=new THREE.WebGLRenderer({canvas:cv,antialias:true,alpha:true});
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2));
+  renderer.outputEncoding=THREE.sRGBEncoding;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.1;
+  const scene=new THREE.Scene();scene.environment=makeEnv(renderer);
+  const camera=new THREE.PerspectiveCamera(36,1.6,.5,800);
+  const controls=new THREE.OrbitControls(camera,cv);controls.enableDamping=true;controls.dampingFactor=.08;controls.minDistance=12;controls.maxDistance=220;controls.autoRotateSpeed=1.4;
+  const key=new THREE.DirectionalLight(0xffffff,.9);key.position.set(40,70,50);scene.add(key);
+  scene.add(new THREE.AmbientLight(0xffffff,.2));
+  const root=new THREE.Group();scene.add(root);
+  const S={renderer,scene,camera,controls,root,t:1,parts:{},d:null,spin:false,tween:null,intro:false,home:null,labels:[]};
+  const rs=()=>{const w=wrap.clientWidth,h=wrap.clientHeight;if(!w||!h)return;renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix()};
+  new ResizeObserver(rs).observe(wrap);
+  S.apply=()=>{for(const n in S.parts){const p=S.parts[n];p.g.position.copy(p.base).addScaledVector(p.dir,S.t)}};
+  S.highlight=n=>{for(const k in S.parts)S.parts[k].g.traverse(o=>{if(o.isMesh&&o.material.emissive){const on=+k===n;o.material.emissive.set(on?0x0a64ff:0x000000);o.material.emissiveIntensity=on?.6:0}})};
+  S.load=d=>{
+    while(root.children.length)root.remove(root.children[0]);
+    const B=d.build3d();S.parts=B.parts;S.d=d;
+    for(const n in B.parts){const p=B.parts[n];p.g.traverse(o=>{if(o.isMesh){o.material=o.material.clone();o.userData.n=+n}});p.base=p.g.position.clone();root.add(p.g)}
+    const gc=document.createElement("canvas");gc.width=gc.height=256;const gx=gc.getContext("2d");const rg=gx.createRadialGradient(128,128,10,128,128,128);rg.addColorStop(0,"rgba(255,255,255,.22)");rg.addColorStop(1,"rgba(255,255,255,0)");gx.fillStyle=rg;gx.fillRect(0,0,256,256);
+    const gp=new THREE.Mesh(new THREE.PlaneGeometry(190,190),new THREE.MeshBasicMaterial({map:new THREE.CanvasTexture(gc),transparent:true,depthWrite:false}));gp.rotation.x=-Math.PI/2;gp.position.set(B.target.x,B.floor,0);root.add(gp);
+    const L=$("#d3labels");L.innerHTML="";S.labels=[];
+    for(const n in B.parts){const el=document.createElement("div");el.className="c3";el.dataset.n=n;el.textContent=n;el.onclick=()=>selPart(+n);L.appendChild(el);S.labels.push({n:+n,el})}
+    camera.position.copy(B.cam);controls.target.copy(B.target);controls.update();S.home=[B.cam.clone(),B.target.clone()];
+    S.t=0;S.apply();S.intro=true;$("#d3t").value=0;rs();
+  };
+  const vis=()=>$("#d3box").offsetParent!==null&&$("#diagrams").classList.contains("on");
+  const v=V3(0,0,0);
+  const frame=now=>{
+    requestAnimationFrame(frame);if(!vis())return;
+    if(S.intro){S.intro=false;S.tween={a:0,b:1,t0:now,d:2000}}
+    if(S.tween){const k=Math.min(1,(now-S.tween.t0)/S.tween.d),e=k<.5?4*k*k*k:1-Math.pow(-2*k+2,3)/2;S.t=S.tween.a+(S.tween.b-S.tween.a)*e;if(k>=1)S.tween=null;S.apply();$("#d3t").value=Math.round(S.t*100)}
+    controls.autoRotate=S.spin;controls.update();scene.updateMatrixWorld();
+    const w=wrap.clientWidth,h=wrap.clientHeight;
+    for(const l of S.labels){const p=S.parts[l.n];v.copy(p.anchor);p.g.localToWorld(v);v.project(camera);l.el.style.left=((v.x+1)/2*w)+"px";l.el.style.top=((1-v.y)/2*h)+"px";l.el.style.display=v.z<1?"block":"none"}
+    renderer.render(scene,camera);
+  };
+  requestAnimationFrame(frame);
+  let down=null;
+  cv.addEventListener("pointerdown",e=>{down=[e.clientX,e.clientY]});
+  cv.addEventListener("pointerup",e=>{
+    if(!down)return;const dx=e.clientX-down[0],dy=e.clientY-down[1];down=null;if(dx*dx+dy*dy>36)return;
+    const r=cv.getBoundingClientRect(),m=new THREE.Vector2((e.clientX-r.left)/r.width*2-1,-((e.clientY-r.top)/r.height)*2+1);
+    const rc=new THREE.Raycaster();rc.setFromCamera(m,camera);
+    const hit=rc.intersectObjects(root.children,true).find(h=>h.object.userData.n);if(hit)selPart(hit.object.userData.n);
+  });
+  $("#d3t").oninput=e=>{S.tween=null;S.intro=false;S.t=+e.target.value/100;S.apply()};
+  $("#d3spin").onclick=()=>{S.spin=!S.spin;$("#d3spin").classList.toggle("sec",!S.spin)};
+  $("#d3reset").onclick=()=>{camera.position.copy(S.home[0]);controls.target.copy(S.home[1]);controls.update()};
+  return S;
+}
+function show3D(d){
+  if(!(window.THREE&&THREE.OrbitControls&&d.build3d))return false;
+  try{if(!G3)G3=init3D();if(G3.d!==d)G3.load(d);return true}
+  catch(err){console.warn("3D unavailable",err);G3=null;return false}
+}
+DIAGRAMS[0].build3d=buildFuel3D;DIAGRAMS[1].build3d=buildHub3D;
+
 /* ----- your own diagrams: a real exploded-view image + numbered hotspots linked to stock ----- */
 let userD=[],uCur=-1,uEdit=false,uZoom=100,uSpot=null;
 function dbOp(store,mode,fn){return new Promise(res=>{if(!db)return res(null);try{const t=db.transaction(store,mode);const r=fn(t.objectStore(store));t.oncomplete=()=>res(r&&r.result!==undefined?r.result:true);t.onerror=()=>res(null)}catch(e){res(null)}})}
@@ -763,14 +963,17 @@ function renderDiagram(){
   if(uCur>=0){renderUser();return}
   $("#dimgbox").style.display="none";$("#dsvgbox").style.display="block";
   const d=DIAGRAMS[dCur];
-  $("#dsvg").innerHTML=d.svg();
+  const ok3=show3D(d);
+  $("#d3box").style.display=ok3?"block":"none";$("#dsvg").style.display=ok3?"none":"block";$("#svgnote").style.display=ok3?"none":"block";
+  if(!ok3)$("#dsvg").innerHTML=d.svg();
   $("#dlegend").innerHTML=d.parts.map(p=>`<button data-n="${p[0]}"><b>${p[0]}</b>${esc(p[1])}</button>`).join("");
   $("#dlegend").querySelectorAll("button").forEach(b=>b.onclick=()=>selPart(+b.dataset.n));
   selPart(dSel);
 }
 function selPart(n){
   dSel=n;const d=DIAGRAMS[dCur],p=d.parts.find(x=>x[0]===n);if(!p)return;
-  document.querySelectorAll("#dsvg [data-n],#dlegend [data-n]").forEach(el=>el.classList.toggle("sel",+el.dataset.n===n));
+  document.querySelectorAll("#dsvg [data-n],#dlegend [data-n],#d3labels [data-n]").forEach(el=>el.classList.toggle("sel",+el.dataset.n===n));
+  if(G3&&G3.d===d)G3.highlight(n);
   $("#dinfo").innerHTML=`<h4>Part ${p[0]}</h4><div style="font-size:24px;font-weight:700;letter-spacing:-.02em;margin-bottom:8px">${esc(p[1])}</div>
    <div class="mute">What it does</div><p style="margin:2px 0 10px">${esc(p[2])}</p>
    <div class="mute">Common problems</div><p style="margin:2px 0 10px">${esc(p[3])}</p>
