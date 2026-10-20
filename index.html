@@ -100,6 +100,10 @@ details.sys p{color:var(--mute);margin:8px 0 0}
 .spot{position:absolute;transform:translate(-50%,-50%);min-width:26px;height:26px;padding:0 6px;border-radius:13px;background:var(--blue);color:#fff;font:700 13px/26px -apple-system,Segoe UI,sans-serif;text-align:center;cursor:pointer;box-shadow:0 0 0 3px rgba(255,255,255,.85),0 2px 8px rgba(0,0,0,.4)}
 .spot.sel{background:#ff9f0a;box-shadow:0 0 0 4px #fff,0 0 0 8px rgba(255,159,10,.45)}
 .btns small{font-size:11px;opacity:.75}
+.exrow{display:grid;grid-template-columns:minmax(120px,auto) 1fr auto;gap:10px;align-items:center;width:100%;text-align:left;border:0;border-bottom:1px solid var(--line);background:none;color:var(--ink);font:inherit;padding:8px 2px;cursor:pointer}
+.exrow .exn{font-size:14px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.exrow .exl{font-size:12px;color:var(--mute);white-space:nowrap}
+@media(max-width:560px){.exrow{grid-template-columns:1fr auto}.exrow .exn{grid-column:1/-1;order:3;white-space:normal}}
 #dsvg{width:100%;height:auto;display:block}
 #dsvg .dp{cursor:pointer}
 #dsvg .dp *{stroke:var(--ink);stroke-width:2.2;stroke-linejoin:round;stroke-linecap:round;fill:var(--card)}
@@ -670,7 +674,7 @@ function hubSvg(){
 }
 const DIAGRAMS=[
 {id:"fuel",title:"Fuel injection system",svg:fuelSvg,parts:[
-[1,"Fuel tank","Stores the diesel. Has a cap with a vent, a strainer on the pick-up tube and a drain for water and sediment.","Water or rust in the tank, blocked vent (engine starves and stalls), cracked or leaking seams.",["TANK","CAP"]],
+[1,"Fuel tank","Stores the diesel. Has a cap with a vent, a strainer on the pick-up tube and a drain for water and sediment.","Water or rust in the tank, blocked vent (engine starves and stalls), cracked or leaking seams.",["FUEL TANK","TANK CAP"]],
 [2,"Fuel / water separator","First filter. Spins water and coarse dirt out of the diesel; the bowl at the bottom is drained regularly.","Full of water (drain it), clogged element, loose drain valve that sucks in air.",["F/FILTER","WATER SEPARATOR","SEPARATOR"]],
 [3,"Lift (feed) pump","A small pump driven by the pump camshaft. Pulls fuel from the tank and pushes it through the filters to the injection pump. Many have a hand primer for bleeding air.","Weak delivery, worn diaphragm or valves, air leaks. Engine starts then stalls or lacks power.",["LIFT PUMP","FEED PUMP","PRIMING"]],
 [4,"Fuel filter (secondary)","Final filter before the injection pump. It catches very fine particles that would wear the pump and injectors.","Blocked filter: loss of power, hard starting, black smoke. Change at the service interval.",["F/FILTER","FUEL FILTER"]],
@@ -678,8 +682,8 @@ const DIAGRAMS=[
 [6,"Delivery valves & high-pressure pipes","Each cylinder has a delivery valve and a thick steel pipe carrying high-pressure fuel from the pump to its injector. All pipes are the same length so timing matches.","Cracked or leaking pipes, loose nuts, damaged cones. Never loosen a pipe while the engine is running.",["INJ PIPE","DELIVERY","HP PIPE"]],
 [7,"Injectors / nozzles","Spray the fuel into the cylinder as a fine mist at the right moment. Each opens when fuel pressure reaches its set value.","Dripping or blocked nozzles: rough idle, white or black smoke, knocking, high fuel use.",["NOZZLE","INJECTOR","HOLDER"]],
 [8,"Leak-off (return) line","Carries the small amount of fuel that leaks past the injectors, and spare fuel from the pump, back to the tank. Usually joined with banjo bolts and copper washers.","Leaks at banjo bolts, cracked pipe, blocked line. Replace the copper washers each time.",["BANJO","LEAK OFF","COPPER WASHER"]],
-[9,"Drive gear / coupling","Connects the injection pump to the engine's timing gears so the pump turns in step with the crankshaft. Timing marks must line up when fitting.","Worn splines or keyway, loose nut, wrong timing after reassembly.",["PUMP GEAR","COUPLING","GEAR"]],
-[10,"Low-pressure fuel lines","Rubber or steel lines carrying fuel from the tank through the filters to the pump. Air getting in here is the usual cause of hard starting.","Perished hoses, loose clips or unions that let air in, kinked lines.",["FUEL HOSE","HOSE","CLIP"]],
+[9,"Drive gear / coupling","Connects the injection pump to the engine's timing gears so the pump turns in step with the crankshaft. Timing marks must line up when fitting.","Worn splines or keyway, loose nut, wrong timing after reassembly.",["PUMP GEAR","COUPLING"]],
+[10,"Low-pressure fuel lines","Rubber or steel lines carrying fuel from the tank through the filters to the pump. Air getting in here is the usual cause of hard starting.","Perished hoses, loose clips or unions that let air in, kinked lines.",["FUEL HOSE"]],
 [11,"Mounting bracket","Holds the injection pump firmly to the engine block so the drive stays aligned.","Cracks or loose bolts cause vibration and timing trouble.",["BRACKET"]]
 ]},
 {id:"hub",title:"Wheel hub & drum (exploded)",svg:hubSvg,parts:[
@@ -690,11 +694,26 @@ const DIAGRAMS=[
 [5,"Brake drum","Bolts to the hub. The brake shoes press on its inside surface to stop the truck.","Heat cracks, deep grooves, out of round, worn beyond the limit stamped on it.",["DRUM","BRAKE DRUM"]],
 [6,"Wheel studs","Bolts pressed into the hub flange that hold the wheel and drum. The wheel nuts thread onto them.","Stretched or damaged threads, loose studs, broken studs. Replace in sets.",["STUD","HUB BOLT","WHEEL NUT"]],
 [7,"Outer bearing","Smaller tapered roller bearing on the outboard side. Carries side loads and keeps the hub centred.","Same as the inner bearing. Too loose or too tight setting shortens its life.",["BRG","BEARING"]],
-[8,"Lock washer","Sits between the bearing and the axle nut and stops the nut from turning off.","Bent or missing tab: the nut can back off and the wheel can come loose.",["WASHER","LOCK"]],
-[9,"Axle nut","Holds everything on the spindle and sets the bearing preload. Torqued to the maker's spec, then locked.","Wrong tightening gives hot bearings or wheel wobble. Always lock it after setting.",["AXLE NUT","NUT"]]
+[8,"Lock washer","Sits between the bearing and the axle nut and stops the nut from turning off.","Bent or missing tab: the nut can back off and the wheel can come loose.",["LOCK WASHER","TAB WASHER"]],
+[9,"Axle nut","Holds everything on the spindle and sets the bearing preload. Torqued to the maker's spec, then locked.","Wrong tightening gives hot bearings or wheel wobble. Always lock it after setting.",["AXLE NUT","LOCK NUT"]]
 ]}];
 let dCur=0,dSel=1;
-function countFor(q){const tk=norm(q).split(" ").filter(Boolean);let n=0;for(const p of parts){tagsOf(p);if(tk.every(t=>p._h.includes(t)))n++}return n}
+/* real part numbers from your stock that match a diagram part, preferring the brands this diagram suits */
+function sampleRows(queries){
+  const out=[],seen=new Set();
+  for(const q of queries){
+    const tk=norm(q).split(" ").filter(Boolean);let got=0;
+    for(const p of parts){
+      tagsOf(p);if(seen.has(p.partno)||!tk.every(t=>hasTok(p._h,t)))continue;
+      seen.add(p.partno);out.push(p);if(++got>=3)break;
+    }
+    if(out.length>=8)break;
+  }
+  if(!out.length)return `<div class="mute">No matching items in your stock yet. Try another search button above.</div>`;
+  return out.slice(0,8).map(p=>`<button class="exrow" data-pn="${esc(p.partno)}"><span class="pn">${esc(p.partno)}</span><span class="exn">${esc((p.name||"").slice(0,70))}</span><span class="exl">${p.location?"📍 "+esc(p.location):""}</span></button>`).join("");
+}
+const hasTok=(h,t)=>t.length<=2?(" "+h+" ").includes(" "+t+" "):h.includes(t);
+function countFor(q){const tk=norm(q).split(" ").filter(Boolean);let n=0;for(const p of parts){tagsOf(p);if(tk.every(t=>hasTok(p._h,t)))n++}return n}
 /* ---------- 3D models (three.js): rotate, zoom, explode ---------- */
 let G3=null;
 const V3=(a,b,c)=>new THREE.Vector3(a,b,c);
@@ -1083,7 +1102,7 @@ function brandCounts(d){
   if(fitsCache[d.id])return fitsCache[d.id];
   const qs=[...new Set(d.parts.flatMap(p=>p[4]))].map(q=>norm(q).split(" ").filter(Boolean));
   const n={};let total=0;
-  for(const p of parts){const tg=tagsOf(p);if(!qs.some(t=>t.every(w=>p._h.includes(w))))continue;total++;tg.brands.forEach(b=>n[b]=(n[b]||0)+1)}
+  for(const p of parts){const tg=tagsOf(p);if(!qs.some(t=>t.every(w=>hasTok(p._h,w))))continue;total++;tg.brands.forEach(b=>n[b]=(n[b]||0)+1)}
   return fitsCache[d.id]={total,list:Object.entries(n).sort((a,b)=>b[1]-a[1]).slice(0,8)};
 }
 function renderFits(d){
@@ -1099,31 +1118,31 @@ function renderFits(d){
 }
 DIAGRAMS.push(
 {id:"hyd",title:"Hydraulic system",svg:noSvg,build3d:buildHyd3D,parts:[
-[1,"Oil reservoir","Stores the oil, lets air and heat escape and lets dirt settle. It has a filler cap with a breather, a sight glass for the level and a drain plug.","Low or dirty oil, a blocked breather (the pump starves), water in the oil (milky colour).",["BREATHER","CAP","TANK"]],
-[2,"Return filter","Cleans the oil as it returns to the tank so metal and rubber particles do not keep circulating. Many have a bypass valve for cold starts.","A blocked element gives slow, noisy hydraulics. Changed late, it lets dirt wear the pump.",["H/FILTER","HYD FILTER","FILTER"]],
-[3,"Hydraulic pump","Driven by the engine. A gear pump uses two meshing gears to push oil out. Flow depends on size and rpm; pressure depends on the load.","Whining noise, weak lift, hot oil, worn gears or side plates, a leaking shaft seal.",["PUMP","HYD PUMP","GEAR PUMP"]],
+[1,"Oil reservoir","Stores the oil, lets air and heat escape and lets dirt settle. It has a filler cap with a breather, a sight glass for the level and a drain plug.","Low or dirty oil, a blocked breather (the pump starves), water in the oil (milky colour).",["BREATHER","TANK"]],
+[2,"Return filter","Cleans the oil as it returns to the tank so metal and rubber particles do not keep circulating. Many have a bypass valve for cold starts.","A blocked element gives slow, noisy hydraulics. Changed late, it lets dirt wear the pump.",["H/FILTER","HYD FILTER"]],
+[3,"Hydraulic pump","Driven by the engine. A gear pump uses two meshing gears to push oil out. Flow depends on size and rpm; pressure depends on the load.","Whining noise, weak lift, hot oil, worn gears or side plates, a leaking shaft seal.",["HYD PUMP","GEAR PUMP","PUMP ASSY"]],
 [4,"Hoses","Flexible, steel-reinforced hoses carry oil between pump, valve and cylinder. Each is rated for a working pressure in bar.","Bulges, cracks, leaks at the ends, rubbing on the frame. Always replace with the same pressure rating and length.",["HOSE","HYD HOSE"]],
-[5,"Control valve","Sends oil to one side of the cylinder or the other when you move the lever. It holds the spools and the pressure relief valve.","Sticking spool, internal leaks (the cylinder creeps down), relief valve set wrongly.",["VALVE","CONTROL VALVE","SPOOL"]],
-[6,"Cylinder barrel","The tube the piston moves inside. Oil on one side pushes the piston out, oil on the other side pulls it back. Shown see-through here.","Scored bore, bent barrel, leaking end cap or port threads.",["CYLINDER","BARREL"]],
-[7,"Piston rod","Hard-chromed steel rod that carries the force out of the cylinder to the loader arm or implement.","Scratches or rust pits cut the seal, bent rod, flaking chrome.",["ROD","PISTON ROD"]],
+[5,"Control valve","Sends oil to one side of the cylinder or the other when you move the lever. It holds the spools and the pressure relief valve.","Sticking spool, internal leaks (the cylinder creeps down), relief valve set wrongly.",["CONTROL VALVE","SPOOL","RELIEF VALVE"]],
+[6,"Cylinder barrel","The tube the piston moves inside. Oil on one side pushes the piston out, oil on the other side pulls it back. Shown see-through here.","Scored bore, bent barrel, leaking end cap or port threads.",["HYD CYLINDER","LIFT CYLINDER","TILT CYLINDER"]],
+[7,"Piston rod","Hard-chromed steel rod that carries the force out of the cylinder to the loader arm or implement.","Scratches or rust pits cut the seal, bent rod, flaking chrome.",["PISTON ROD","CYLINDER ROD"]],
 [8,"Piston and seals","Divides the barrel into two chambers. Seal rings stop oil passing from one side to the other so the cylinder holds its load.","Worn seals: the cylinder drifts down, or is slow and weak.",["SEAL KIT","PISTON","O-RING"]],
 [9,"Gland, rod seal and wiper","Guides the rod, keeps oil in with the rod seal and scrapes dirt off with the wiper. Change the wiper and seal together.","Oil running down the rod, a torn wiper, dirt inside the cylinder.",["O/SEAL","WIPER","DUST SEAL","ROD SEAL"]],
 [10,"Fittings and couplers","The ends that join hoses to ports. Quick couplers let you disconnect implements. Check the thread type: BSP, NPT, JIC or metric.","Wrong thread, damaged sealing face, a leaking O-ring or washer.",["FIT/HYD","FITTING","COUPLER","ADAPTOR"]]
 ]},
 {id:"gear",title:"Gearbox, clutch & propeller shaft",svg:noSvg,build3d:buildGear3D,parts:[
 [1,"Flywheel","A heavy disc bolted to the engine crankshaft. It smooths the engine pulses, carries the starter ring gear and gives the clutch disc a friction face.","Heat cracks, a glazed or scored face, worn ring gear teeth (the starter grinds).",["FLYWHEEL","RING GEAR"]],
-[2,"Clutch disc","The friction plate between the flywheel and pressure plate. When the pedal is up it is clamped and drives the gearbox. Springs in the hub soften the shock.","Worn lining (the clutch slips), broken damper springs (rattle), oil on the lining.",["CLUTCH DISC","CLUTCH","DISC"]],
+[2,"Clutch disc","The friction plate between the flywheel and pressure plate. When the pedal is up it is clamped and drives the gearbox. Springs in the hub soften the shock.","Worn lining (the clutch slips), broken damper springs (rattle), oil on the lining.",["CLUTCH DISC","CLUTCH PLATE"]],
 [3,"Pressure plate and cover","Clamps the disc against the flywheel using a diaphragm spring. Pressing the pedal releases the clamp.","Weak or cracked spring, scored plate, uneven release (judder).",["PRESSURE PLATE","CLUTCH COVER"]],
 [4,"Release bearing and fork","The fork pushes the release bearing against the diaphragm spring when you press the pedal. The bearing spins with the spring.","Noise when the pedal is pressed, a worn fork, a seized bearing.",["RELEASE BEARING","FORK","THROW OUT"]],
-[5,"Gearbox casing","The housing that holds the shafts and gear oil in alignment. The bell housing joins it to the engine. Shown see-through.","Oil leaks at gaskets and seals, cracks, worn bearing bores.",["GASKET","COVER","HOUSING"]],
-[6,"Input shaft","Receives power from the clutch disc and drives the layshaft through the input gear. The disc hub slides on its splines.","Worn splines, damaged bearing, a leaking front seal.",["INPUT SHAFT","SHAFT","O/SEAL"]],
-[7,"Main shaft and gears","Carries the gears that you choose with the shift lever. Synchroniser sleeves match speeds so the gears mesh smoothly. The flange at the end joins the propeller shaft.","Chipped teeth, worn synchronisers (grinding when shifting), jumping out of gear.",["GEAR","SYNCHRO","MAIN SHAFT"]],
-[8,"Layshaft","The countershaft below, always turning with the input shaft. Its gears are always in mesh with the main shaft gears.","Worn bearings (whine), damaged gears, loose end float.",["LAYSHAFT","COUNTER SHAFT","GEAR","BRG"]],
+[5,"Gearbox casing","The housing that holds the shafts and gear oil in alignment. The bell housing joins it to the engine. Shown see-through.","Oil leaks at gaskets and seals, cracks, worn bearing bores.",["GEAR BOX","GEARBOX","BELL HOUSING"]],
+[6,"Input shaft","Receives power from the clutch disc and drives the layshaft through the input gear. The disc hub slides on its splines.","Worn splines, damaged bearing, a leaking front seal.",["INPUT SHAFT","MAIN SHAFT"]],
+[7,"Main shaft and gears","Carries the gears that you choose with the shift lever. Synchroniser sleeves match speeds so the gears mesh smoothly. The flange at the end joins the propeller shaft.","Chipped teeth, worn synchronisers (grinding when shifting), jumping out of gear.",["SYNCHRO","MAIN SHAFT","SLEEVE"]],
+[8,"Layshaft","The countershaft below, always turning with the input shaft. Its gears are always in mesh with the main shaft gears.","Worn bearings (whine), damaged gears, loose end float.",["LAYSHAFT","COUNTER SHAFT"]],
 [9,"Propeller shaft","A tube that carries power from the gearbox to the rear axle. The splined slip yoke lets its length change as the axle moves.","Worn splines, an out-of-balance or bent tube, lack of grease.",["PROPELLER","PROP SHAFT","SLIP YOKE","YOKE"]],
-[10,"Universal joint","A cross (spider) with four bearing caps that lets the shaft turn even when the angle changes. Trucks have one at each end.","Clunk when taking up drive, vibration at speed, worn caps. Grease where fitted.",["U/JOINT","UNIVERSAL","CROSS","SPIDER"]]
+[10,"Universal joint","A cross (spider) with four bearing caps that lets the shaft turn even when the angle changes. Trucks have one at each end.","Clunk when taking up drive, vibration at speed, worn caps. Grease where fitted.",["U/JOINT","UNIVERSAL JOINT","SPIDER"]]
 ]},
 {id:"steer",title:"Steering & front axle",svg:noSvg,build3d:buildSteer3D,parts:[
-[1,"Front axle beam","A forged I-beam that carries the weight of the front of the truck. The ends are bored for the king pins; the springs sit on the pads.","Bends after accidents, worn king pin bores, cracks near the spring pads.",["AXLE","FRONT AXLE","BEAM"]],
+[1,"Front axle beam","A forged I-beam that carries the weight of the front of the truck. The ends are bored for the king pins; the springs sit on the pads.","Bends after accidents, worn king pin bores, cracks near the spring pads.",["FRONT AXLE","AXLE BEAM"]],
 [2,"King pins","The vertical pins the steering knuckles pivot on. They run in bushings and are locked with a taper bolt.","Worn pins and bushings: loose steering, uneven tyre wear, vibration. Replace the set together.",["KING PIN","KINGPIN","KING PIN KIT"]],
 [3,"Steering knuckles","Hold the wheel hub on the spindle and pivot on the king pin. Arms on the knuckle connect to the tie rod and drag link.","Worn bushings, cracked arms, a damaged spindle or bearing seat.",["KNUCKLE","BUSH","SPINDLE"]],
 [4,"Tie rod","Joins the two knuckles so the wheels turn together. Its length sets the toe-in, so adjust and recheck the alignment after fitting.","Bent rod, worn threads, wrong length (tyre wear).",["TIE ROD","TRACK ROD"]],
@@ -1131,7 +1150,7 @@ DIAGRAMS.push(
 [6,"Drag link","The rod from the pitman arm to the steering arm on the left knuckle. It moves the knuckle when the steering box turns.","Worn ball sockets, bent link, loose steering (play at the wheel).",["DRAG LINK","DRAG ROD"]],
 [7,"Pitman arm","Bolts to the output shaft of the steering box on splines and swings the drag link forwards and backwards.","Loose or worn splines, cracks, a worn ball stud.",["PITMAN","PITMAN ARM","STEERING ARM"]],
 [8,"Steering box","Turns the movement of the steering wheel into the swing of the pitman arm. On trucks it is usually a recirculating ball box with power assist.","Oil leaks, play at the wheel, heavy or noisy steering.",["STEERING BOX","STEERING GEAR","SECTOR","O/SEAL"]],
-[9,"Leaf springs","Stacks of curved steel leaves that carry the load and absorb bumps. U-bolts clamp them to the axle.","Cracked or broken leaves, sagging, loose U-bolts, worn bushes in the eyes.",["SPRING","LEAF SPRING","U-BOLT","BUSH"]],
+[9,"Leaf springs","Stacks of curved steel leaves that carry the load and absorb bumps. U-bolts clamp them to the axle.","Cracked or broken leaves, sagging, loose U-bolts, worn bushes in the eyes.",["LEAF SPRING","U-BOLT","SPRING PIN"]],
 [10,"Shock absorbers","Dampers that stop the springs bouncing. They have a rubber bush at each end.","Oil leaks, a bouncing truck, worn bushes.",["SHOCK","SHOCK ABSORBER","DAMPER"]]
 ]});
 
@@ -1234,7 +1253,10 @@ function selPart(n){
    <div class="mute">What it does</div><p style="margin:2px 0 10px">${esc(p[2])}</p>
    <div class="mute">Common problems</div><p style="margin:2px 0 10px">${esc(p[3])}</p>
    <div class="mute">Look in your stock</div>
-   <div class="btns">${p[4].map(q=>`<button class="btn sec" data-q="${esc(q)}">${esc(q)} · ${countFor(q).toLocaleString()}</button>`).join("")}</div>`;
+   <div class="btns">${p[4].map(q=>`<button class="btn sec" data-q="${esc(q)}">${esc(q)} · ${countFor(q).toLocaleString()}</button>`).join("")}</div>
+   <div class="mute" style="margin-top:12px">Closest matches in your stock by name (tap one for details; confirm the fit with your parts book)</div>
+   <div id="dex">${sampleRows(p[4],d.id)}</div>`;
+  $("#dinfo").querySelectorAll("[data-pn]").forEach(b=>b.onclick=()=>openSheet(b.dataset.pn));
   $("#dinfo").querySelectorAll("[data-q]").forEach(b=>b.onclick=()=>{fType="All";fBrand="";fGroup="";renderFilters();showTab("find");$("#q").value=b.dataset.q;renderFind()});
 }
 $("#dsvg").addEventListener("click",e=>{const g=e.target.closest("[data-n]");if(g)selPart(+g.dataset.n)});
