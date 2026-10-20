@@ -100,6 +100,13 @@ details.sys p{color:var(--mute);margin:8px 0 0}
 .spot{position:absolute;transform:translate(-50%,-50%);min-width:26px;height:26px;padding:0 6px;border-radius:13px;background:var(--blue);color:#fff;font:700 13px/26px -apple-system,Segoe UI,sans-serif;text-align:center;cursor:pointer;box-shadow:0 0 0 3px rgba(255,255,255,.85),0 2px 8px rgba(0,0,0,.4)}
 .spot.sel{background:#ff9f0a;box-shadow:0 0 0 4px #fff,0 0 0 8px rgba(255,159,10,.45)}
 .btns small{font-size:11px;opacity:.75}
+.mcard{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:var(--card);border-radius:16px;padding:12px 14px;margin:8px 0;cursor:pointer}
+.mcard b{font-size:17px}.mcard .mc{margin-left:auto;color:var(--mute);font-size:14px}
+.mgs{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}
+.mgs button{border:0;background:var(--seg);color:var(--ink);font:inherit;font-size:14px;border-radius:980px;padding:6px 14px;cursor:pointer}
+.mgs button.on{background:var(--blue);color:#fff}
+.crow{display:grid;grid-template-columns:70px 1fr 90px;gap:8px;align-items:center;margin:6px 0}
+@media(max-width:560px){.crow{grid-template-columns:60px 1fr}.crow .mute{display:none}}
 .exrow{display:grid;grid-template-columns:minmax(120px,auto) 1fr auto;gap:10px;align-items:center;width:100%;text-align:left;border:0;border-bottom:1px solid var(--line);background:none;color:var(--ink);font:inherit;padding:8px 2px;cursor:pointer}
 .exrow .exn{font-size:14px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .exrow .exl{font-size:12px;color:var(--mute);white-space:nowrap}
@@ -131,6 +138,7 @@ details.sys p{color:var(--mute);margin:8px 0 0}
 <nav class="top">
   <span class="logo">PartFinder</span>
   <button data-tab="find" class="on">Find</button>
+  <button data-tab="models">Models</button>
   <button data-tab="learn">Learn</button>
   <button data-tab="diagrams">Diagrams</button>
   <button data-tab="quiz">Quiz</button>
@@ -157,6 +165,18 @@ details.sys p{color:var(--mute);margin:8px 0 0}
     <div class="empty" id="more" style="display:none"></div>
   </div>
 </section>
+
+<section id="models" class="tab"><div class="wrap">
+  <h2 class="big">Find by model.</h2>
+  <p class="mute">Type the customer's truck or tractor, for example Dutro, CW520, MF 390, FTR or 5640. The models come from the codes in your own stock descriptions.</p>
+  <input class="in" id="mq" style="font-size:18px;padding:14px 16px" placeholder="e.g. hino dutro · nissan cw520 · massey 390" autocomplete="off">
+  <div class="chips" id="mpop" style="flex-wrap:wrap;overflow:visible"></div>
+  <div id="mres"></div>
+  <div id="mdet"></div>
+  <details class="box" style="margin-top:16px"><summary style="cursor:pointer;font-weight:600">Check my shop codes</summary>
+    <p class="mute">These are my guesses for what each code in your descriptions means. Correct any that are wrong and tap Save.</p>
+    <div id="mcodes"></div><div class="btns"><button class="btn" id="mcsave">Save names</button></div></details>
+</div></section>
 
 <section id="learn" class="tab"><div class="wrap">
   <h2 class="big">Learn trucks<br>&amp; tractors.</h2>
@@ -384,6 +404,7 @@ function showTab(t){
   document.querySelectorAll("section.tab").forEach(s=>s.classList.toggle("on",s.id===t));
   if(t==="stock")$("#stockcount").textContent=parts.length.toLocaleString()+" parts on this device";
   if(t==="quiz")nextQ();
+  if(t==="models")renderModels();
   scrollTo(0,0);
 }
 document.querySelectorAll("nav.top button").forEach(b=>b.onclick=()=>showTab(b.dataset.tab));
@@ -1260,6 +1281,99 @@ function selPart(n){
   $("#dinfo").querySelectorAll("[data-q]").forEach(b=>b.onclick=()=>{fType="All";fBrand="";fGroup="";renderFilters();showTab("find");$("#q").value=b.dataset.q;renderFind()});
 }
 $("#dsvg").addEventListener("click",e=>{const g=e.target.closest("[data-n]");if(g)selPart(+g.dataset.n)});
+/* ---------- Models: find parts by the customer's truck / tractor model ---------- */
+const CODES0={HN:["Hino","Truck"],NS:["Nissan UD","Truck"],ISU:["Isuzu","Truck"],ISE:["Isuzu","Truck"],IS:["Isuzu","Truck"],MIT:["Mitsubishi Fuso","Truck"],FOTON:["Foton","Truck"],HOHAN:["Sinotruk Hohan","Truck"],FUWA:["Fuwa","Axle"],MF:["Massey Ferguson","Tractor"],NH:["New Holland","Tractor"],FD:["Ford","Tractor"],UR:["Ursus","Tractor"],JD:["John Deere","Tractor"],KB:["Kubota","Tractor"],YM:["Yanmar","Tractor"],PK:["Perkins","Engine"],CS:["Case (?)","Machinery"],TY:["Toyota","Pickup"],HIT:["Hitachi","Machinery"],CM:["CM (?)",""],LD:["LD (?)",""]};
+let CODEMAP={};try{CODEMAP=JSON.parse(localStorage.getItem("pf.codes")||"{}")}catch(e){}
+const codeName=c=>CODEMAP[c]||(CODES0[c]?CODES0[c][0]:c);
+const codeType=c=>CODES0[c]?CODES0[c][1]:"";
+const WORD_OK=new Set(["DUTRO","VALIDUS","CANTER","FUSO","PROFIA","QUON","FTR","NPR","NHR","NKR","FVR","FRR","FSR","GVR","HICOM","VIGO","HILUX","URVAN","CONDOR","RANGER","FIGHTER","TRITON"]);
+const CODE_RE=/\b(FOTON|HOHAN|FUWA|HIT|ISU|ISE|MIT|HN|NS|MF|NH|FD|UR|JD|KB|YM|PK|LD|CS|CM|TY|IS)(?=[-\/ ]?[A-Z0-9])/g;
+function goodModel(t){
+  if(WORD_OK.has(t))return true;
+  if(!/\d/.test(t)||t.length<3||t.length>12)return false;
+  if(/\dX\d/.test(t)||/^\d+(MM|TON|T|H|M|L|K|PCS|HOLE|INCH)/.test(t)||/^\d{1,2}$/.test(t))return false;
+  return true;
+}
+let MIDX=null;
+function buildModels(){
+  const map=new Map();
+  for(const p of parts){
+    const s=(p.name||"").toUpperCase();if(!s)continue;
+    const seen=new Set();CODE_RE.lastIndex=0;let m;
+    while((m=CODE_RE.exec(s))){
+      const raw=m[1],code=raw==="IS"?"ISU":raw,mm=/^[-\/ ]?([A-Z0-9][A-Z0-9.]*(?:\/[A-Z0-9][A-Z0-9.]*)*)/.exec(s.slice(m.index+raw.length));
+      if(!mm)continue;
+      for(const tok of mm[1].split("/")){
+        if(!goodModel(tok))continue;
+        const key=code+" "+tok;if(seen.has(key))continue;seen.add(key);
+        let e=map.get(key);if(!e){e={key,code,model:tok,parts:[]};map.set(key,e)}e.parts.push(p);
+      }
+    }
+  }
+  MIDX=[...map.values()].filter(e=>e.parts.length>=2).sort((a,b)=>b.parts.length-a.parts.length);
+}
+const SYSG=[["Filters",/FILTER/,"fuel"],
+["Brakes",/BRAKE|LINING|DRUM|SHOE|CALIPER|AIR DRYER|CHAMBER|SLACK|\bWCA\b|\bBRK\b|WHEEL CYL|MASTER CYL|BOOSTER/,"hub"],
+["Fuel system",/NOZZLE|INJ|FUEL|PLUNGER|LIFT PUMP/,"fuel"],
+["Hydraulics",/HYD|SEAL KIT|CYLINDER|COUPLER|FITTING|UNION|HOSE|\bJIC\b|METRIC|BSPT|\bORF\b|\bMALE\b|FEMALE|NIPPLE|BANJO|ADAPT/,"hyd"],
+["Steering & suspension",/STEERING|STRG|STG|TIE ROD|DRAG LINK|KING PIN|KNUCKLE|SPRING|SHOCK|BUSH|PITMAN|BALL JOINT|B\/JOINT|STABILI|\bTRE\b|\bABS\b|\bS\/(LEAF|ABS)|SHACKLE/,"steer"],
+["Clutch, gearbox & drive",/CLUTCH|GEAR|SYNCHRO|TRANS|SELECTOR|PROPELLER|UNIVERSAL|U-JOINT|YOKE|DIFF|PTO|SHAFT|FLYWHEEL|\bC\/(DISC|COVER|PLATE|BRG|FORK)/,"gear"],
+["Engine & mounts",/PISTON|\bPTN\b|LINER|RING|CRANK|CAMSHAFT|CON ROD|GSK|GASKET|CYL HEAD|VALVE|TURBO|TAPPET|\bMTG\b|ENGINE/,null],
+["Cooling",/RADIATOR|THERMOSTAT|W\/PUMP|WATER|FAN|BELT|COOL/,null],
+["Electrical",/ALTERNATOR|STARTER|SWITCH|RELAY|LAMP|BULB|SENSOR|WIRING|HORN|BATTERY|FUSE|REGULATOR/,null],
+["Bearings & seals",/BRG|BEARING|SEAL|O-?RING|O\/SEAL/,"hub"],
+["Bolts, nuts & hardware",/BOLT|NUT|STUD|WASHER|SCREW|PIN\b|CLIP|CIRCLIP|SHIM/,null],
+["Body, cabin & tyres",/DOOR|MIRROR|CABIN|WINDSCREEN|SEAT|HANDLE|\bRIM\b|TYRE|BALLOON|BUMPER|WIPER|CABLE/,null],
+["Oils, tools & services",/\bOIL\b|GREASE|WELDING|DRILL|LABOUR/,null]];
+function sysOf(p){
+  if(p._sg)return p._sg;let g="Other";const s=((p.name||"")+" "+p.partno).toUpperCase();
+  for(const x of SYSG)if(x[1].test(s)){g=x[0];break}
+  Object.defineProperty(p,"_sg",{value:g,enumerable:false,configurable:true});return g;
+}
+let mSel=null,mGrp=null;
+function mTitle(e){return codeName(e.code)+" "+e.model}
+function renderModels(){
+  if(!MIDX)buildModels();
+  const tk=norm($("#mq").value).split(" ").filter(Boolean);
+  const list=tk.length?MIDX.filter(e=>{const h=norm(codeName(e.code)+" "+e.code+" "+e.model);return tk.every(t=>hasTok(h,t))}):[];
+  $("#mpop").innerHTML=tk.length?"":MIDX.slice(0,18).map(e=>`<span class="chip" data-k="${esc(e.key)}">${esc(mTitle(e))} · ${e.parts.length}</span>`).join("");
+  $("#mpop").querySelectorAll(".chip").forEach(c=>c.onclick=()=>{mSel=c.dataset.k;mGrp=null;showModel()});
+  $("#mres").innerHTML=tk.length?(list.length?list.slice(0,30).map(e=>`<div class="mcard" data-k="${esc(e.key)}"><b>${esc(mTitle(e))}</b>${codeType(e.code)?`<span class="tag t">${esc(codeType(e.code))}</span>`:""}<span class="mc">${e.parts.length.toLocaleString()} parts</span></div>`).join(""):`<div class="empty">No model like that in your stock descriptions.<br>Try fewer letters, or search all parts in <a href="#" id="m2find">Find</a>.</div>`):"";
+  $("#mres").querySelectorAll(".mcard").forEach(c=>c.onclick=()=>{mSel=c.dataset.k;mGrp=null;showModel()});
+  const a=$("#m2find");if(a)a.onclick=ev=>{ev.preventDefault();fType="All";fBrand="";fGroup="";renderFilters();showTab("find");$("#q").value=$("#mq").value;renderFind()};
+  renderCodes();showModel(true);
+}
+function showModel(keep){
+  const box=$("#mdet"),e=mSel&&MIDX.find(x=>x.key===mSel);
+  if(!e){box.innerHTML="";return}
+  const groups={};for(const p of e.parts)(groups[sysOf(p)]=groups[sysOf(p)]||[]).push(p);
+  const names=Object.keys(groups).sort((a,b)=>groups[b].length-groups[a].length);
+  if(!mGrp||!groups[mGrp])mGrp=names[0];
+  const sg=SYSG.find(x=>x[0]===mGrp),di=sg&&sg[2]?DIAGRAMS.findIndex(d=>d.id===sg[2]):-1;
+  const rows=groups[mGrp].slice(0,100).map(p=>`<button class="exrow" data-pn="${esc(p.partno)}"><span class="pn">${esc(p.partno)}</span><span class="exn">${esc((p.name||"").slice(0,80))}</span><span class="exl">${p.location?"📍 "+esc(p.location):""}</span></button>`).join("");
+  box.innerHTML=`<div class="box" style="margin-top:14px"><h4>${esc(codeType(e.code)||"Model")}</h4>
+    <div style="font-size:26px;font-weight:700;letter-spacing:-.02em">${esc(mTitle(e))}</div>
+    <div class="mute">${e.parts.length.toLocaleString()} parts in your stock mention this model. Choose a system:</div>
+    <div class="mgs">${names.map(n=>`<button class="${n===mGrp?"on":""}" data-g="${esc(n)}">${esc(n)} · ${groups[n].length}</button>`).join("")}</div>
+    ${di>=0?`<div class="btns" style="margin:0 0 6px"><button class="btn sec" id="m2dia">▶ See the ${esc(DIAGRAMS[di].title)} diagram</button></div>`:""}
+    <div>${rows}</div>${groups[mGrp].length>100?`<div class="mute">Showing the first 100 of ${groups[mGrp].length}.</div>`:""}
+    <div class="mute" style="font-size:12px;margin-top:8px">Matched by the model code in the description. A part can fit other models too, so confirm with the chassis or engine number.</div></div>`;
+  box.querySelectorAll("[data-g]").forEach(b=>b.onclick=()=>{mGrp=b.dataset.g;showModel()});
+  box.querySelectorAll("[data-pn]").forEach(b=>b.onclick=()=>openSheet(b.dataset.pn));
+  const dd=$("#m2dia");if(dd)dd.onclick=()=>{dCur=di;uCur=-1;dSel=1;showTab("diagrams");renderDiagram()};
+  if(!keep)box.scrollIntoView({behavior:"smooth",block:"start"});
+}
+function renderCodes(){
+  if($("#mcodes").dataset.done)return;$("#mcodes").dataset.done=1;
+  const n={};for(const e of MIDX)n[e.code]=(n[e.code]||0)+e.parts.length;
+  $("#mcodes").innerHTML=Object.keys(n).sort((a,b)=>n[b]-n[a]).map(c=>`<div class="crow"><b>${esc(c)}</b><input class="in" data-c="${esc(c)}" value="${esc(codeName(c))}"><span class="mute">${n[c].toLocaleString()} parts</span></div>`).join("");
+}
+$("#mcsave").onclick=()=>{
+  document.querySelectorAll("#mcodes [data-c]").forEach(i=>{const c=i.dataset.c,v=i.value.trim();if(v&&v!==(CODES0[c]?CODES0[c][0]:c))CODEMAP[c]=v;else delete CODEMAP[c]});
+  try{localStorage.setItem("pf.codes",JSON.stringify(CODEMAP))}catch(e){}
+  toast("Names saved");renderModels();
+};
+let mqt;$("#mq").oninput=()=>{clearTimeout(mqt);mqt=setTimeout(()=>{mSel=null;renderModels()},150)};
 renderFilters();renderFind();renderLearn();renderDiagram();openDB();
 </script>
 </body>
